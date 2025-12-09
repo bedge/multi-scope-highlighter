@@ -1,0 +1,96 @@
+{
+  "name": "multi-scope-highlighter",
+  "displayName": "multi-scope-highlighter",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.106.1"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "menus": {
+      "editor/context": [
+        {
+          "command": "multiScopeHighlighter.toggleHighlight",
+          "group": "navigation",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "multiScopeHighlighter.manageHighlights",
+          "group": "navigation",
+          "when": "!editorHasSelection"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "multiScopeHighlighter.toggleHighlight",
+        "title": "Highlight: Toggle Selection"
+      },
+      {
+        "command": "multiScopeHighlighter.clearAll",
+        "title": "Highlight: Clear All"
+      },
+      {
+        "command": "multiScopeHighlighter.toggleScope",
+        "title": "Highlight: Toggle Scope (Single/All Open)"
+      },
+      {
+        "command": "multiScopeHighlighter.saveProfile",
+        "title": "Highlight: Save Profile"
+      },
+      {
+        "command": "multiScopeHighlighter.loadProfile",
+        "title": "Highlight: Load Profile"
+      },
+      {
+        "command": "multiScopeHighlighter.deleteProfile",
+        "title": "Highlight: Delete Profile"
+      },
+      {
+        "command": "multiScopeHighlighter.manageHighlights",
+        "title": "Highlight: Manage Current Highlights"
+      },
+      {
+        "command": "multiScopeHighlighter.toggleStyle",
+        "title": "Highlight: Toggle Style (Box / Fill)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "multiScopeHighlighter.toggleHighlight",
+        "key": "ctrl+h",
+        "mac": "cmd+h",
+        "when": "editorTextFocus"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.106.1",
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "typescript-eslint": "^8.48.1",
+    "@typescript-eslint/eslint-plugin": "^5.59.8",
+    "@typescript-eslint/parser": "^5.59.8",
+    "eslint": "^9.39.1",
+    "glob": "^8.1.0",
+    "typescript": "^5.9.3",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
