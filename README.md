@@ -32,12 +32,12 @@ a unique, high-contrast color automatically.**
 
 - **Fill: Solid background color (great for spotting items quickly).**
 
-    ![Solid highlight](images/screenshot-fill.png)
+    ![Solid highlight](./images/screenshot-fill.png)
 
 - **Box: 2px Outline border with transparent background (great for
   readability).**
 
-    ![Box highlight](images/screenshot-box.png)
+    ![Box highlight](./images/screenshot-box.png)
 
 ### ⚙️ Advanced Management
 
@@ -101,7 +101,7 @@ active patterns.**
 
   - **\[.\*\] Regex: Treats the text as a Regular Expression.**
 
-  ![Manage highlights](images/screenshot-manage.png)
+  ![Manage highlights](./images/screenshot-manage.png)
 
 ## Extension Commands
 
