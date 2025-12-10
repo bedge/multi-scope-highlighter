@@ -577,17 +577,18 @@ export function activate(context: vscode.ExtensionContext) {
                     const entries = Array.from(highlightMap.entries());
                     const index = entries.findIndex(([k]) => k === pattern);
                     if (index !== -1) {
+                        // 1. Dispose old
                         decorationMap.get(pattern)?.dispose();
                         decorationMap.delete(pattern);
 
-                        const colorKey = details.color;
-                        const finalColor = getColorValue(colorKey);
-
-                        const newDec = vscode.window.createTextEditorDecorationType({});
-                        decorationMap.set(newPattern, newDec);
+                        // 2. Update Map Order
                         entries[index] = [newPattern, details];
                         highlightMap.clear();
                         entries.forEach(([p, d]) => highlightMap.set(p, d));
+                        
+                        // 3. Add new decoration
+                        addHighlight(newPattern, details);
+                        
                         triggerUpdate();
                     }
                 }
@@ -628,7 +629,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     vscode.workspace.onDidChangeConfiguration(e => {
         if (e.affectsConfiguration('multiScopeHighlighter')) {
-            updateStatusBars(); // Added this to refresh bars immediately on config change
+            updateStatusBars(); // Refresh bars immediately on config change
             refreshAllDecorations();
         }
     }, null, context.subscriptions);
