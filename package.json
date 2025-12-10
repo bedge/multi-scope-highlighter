@@ -8,7 +8,7 @@
   "displayName": "multi-scope-highlighter",
   "description": "Highlight multiple selections across multiple files in VS Code.",
   "icon": "images/icon128.png",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "engines": {
     "vscode": "^1.106.1"
   },
@@ -20,6 +20,27 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "Multi-Scope Highlighter",
+      "properties": {
+        "multiScopeHighlighter.fillOpacity": {
+          "type": "number",
+          "default": 0.35,
+          "minimum": 0.1,
+          "maximum": 1.0,
+          "description": "Opacity of the background highlight (0.1 - 1.0)."
+        },
+        "multiScopeHighlighter.textContrast": {
+          "type": "string",
+          "enum": [
+            "inherit",
+            "force-contrast"
+          ],
+          "default": "inherit",
+          "description": "Text color style. 'inherit' keeps syntax highlighting; 'force-contrast' sets text to Black/White for maximum readability."
+        }
+      }
+    },
     "menus": {
       "editor/context": [
         {
@@ -65,7 +86,15 @@
       },
       {
         "command": "multiScopeHighlighter.toggleStyle",
-        "title": "Highlight: Toggle Style (Box / Fill)"
+        "title": "Highlight: Toggle Style (Box / Fill / Hybrid)"
+      },
+      {
+        "command": "multiScopeHighlighter.setOpacity",
+        "title": "Highlight: Set Opacity"
+      },
+      {
+        "command": "multiScopeHighlighter.toggleContrast",
+        "title": "Highlight: Toggle Text Contrast"
       }
     ],
     "keybindings": [
