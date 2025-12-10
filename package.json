@@ -1,9 +1,14 @@
 {
-  "publisher": "BruceEdge",
+  "publisher": "bruce-edge",
   "name": "multi-scope-highlighter",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bedge/multi-scope-highlighter"
+  },
   "displayName": "multi-scope-highlighter",
   "description": "Highlight multiple selections across multiple files in VS Code.",
-  "version": "0.0.1",
+  "icon": "images/icon128.png",
+  "version": "0.0.2",
   "engines": {
     "vscode": "^1.106.1"
   },
