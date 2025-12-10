@@ -57,7 +57,7 @@ You can customize the visual appearance of highlights in your VS Code Settings (
 | **Hybrid Mode** | If enabled, the "Fill" style also draws a thin border around the highlight for better definition. | `true` |
 | **Text Contrast** | Controls how text inside a highlight appears:<br>• `inherit`: Preserves syntax highlighting (keywords, strings, etc).<br>• `force-contrast`: Forces text to Black/White for maximum readability. | `inherit` |
 
-![settings](./images/config.png)
+![settings](./images/settings.png)
 
 ## 🚀 Usage
 
