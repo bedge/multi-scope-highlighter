@@ -22,13 +22,13 @@
 
 **Toggle between two visual modes to suit your preference:**
 
-- **Fill:** Solid background color (great for spotting items quickly).
+- **Fill:** Solid background color (clean, low noise).
 
-![Solid highlight](./images/screenshot-fill.png)
+![Solid highlight](./images/fill.png)
 
-- **Box:** 2px Outline border with transparent background (great for readability).
+- **Box:** 2px Outline border with transparent background (minimalist).
 
-![Box highlight](./images/screenshot-box.png)
+![Box highlight](./images/box.png)
 
 ### ⚙️ Advanced Management
 
@@ -47,7 +47,9 @@
 
 ## 🛠️ Configuration
 
-You can customize the visual appearance of highlights in your VS Code Settings (`Ctrl+,`):
+You can customize the visual appearance of highlights in your VS Code Settings (`Ctrl+,`) OR directly from the Status Bar:
+
+![Settings](./images/ui.png)
 
 | Setting | Description | Default |
 | :--- | :--- | :--- |
@@ -55,7 +57,7 @@ You can customize the visual appearance of highlights in your VS Code Settings (
 | **Hybrid Mode** | If enabled, the "Fill" style also draws a thin border around the highlight for better definition. | `true` |
 | **Text Contrast** | Controls how text inside a highlight appears:<br>• `inherit`: Preserves syntax highlighting (keywords, strings, etc).<br>• `force-contrast`: Forces text to Black/White for maximum readability. | `inherit` |
 
-![settings](./images/screenshot-config.png)
+![settings](./images/config.png)
 
 ## 🚀 Usage
 
@@ -71,8 +73,10 @@ You can customize the visual appearance of highlights in your VS Code Settings (
 
 **Look for the indicators in the bottom right of your VS Code window:**
 
-- **$(files) Scope:** Click to toggle between **Single File** and **All Open**.
-- **$(paintcan) Style:** Click to toggle between **Fill** and **Box**.
+- **$(files) Single / All:** Switch scope.
+- **$(paintcan) Fill / Hybrid / Box:** Cycle visual style.
+- **$(circle-filled) 35%:** Set highlight opacity (opens picker).
+- **$(color-mode) Auto / B&W:** Toggle high-contrast text mode.
 
 ### The "Manage Highlights" Workflow
 
@@ -85,7 +89,7 @@ You can customize the visual appearance of highlights in your VS Code Settings (
   - **[ab] Whole Word:** Matches `\bword\b` only.
   - **[.*] Regex:** Treats the text as a Regular Expression.
 
-![Manage highlights](./images/screenshot-manage.png)
+![Manage highlights](./images/manage.png)
 
 ## ⌨️ Extension Commands
 
@@ -95,7 +99,9 @@ You can customize the visual appearance of highlights in your VS Code Settings (
 - `Highlight: Manage Current Highlights`
 - `Highlight: Clear All`
 - `Highlight: Toggle Scope (Single/All Open)`
-- `Highlight: Toggle Style (Box/Fill)`
+- `Highlight: Toggle Style (Box/Fill/Hybrid)`
+- `Highlight: Set Opacity`
+- `Highlight: Toggle Text Contrast`
 - `Highlight: Save Profile`
 - `Highlight: Load Profile`
 - `Highlight: Delete Profile`
