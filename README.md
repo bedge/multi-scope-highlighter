@@ -4,21 +4,32 @@
 
 ## ✨ Features
 
-### Multi-Word Highlighting
+### Multi-Word & File Highlighting
 
 **Highlight multiple different words simultaneously. Each new word gets a unique, high-contrast color automatically.**
 
 - **Smart Coloring:** Colors are automatically selected from a palette of 20 distinct, high-visibility hues.
 - **Adaptive Themes:** Colors automatically adjust to look great in both Dark (Neon/Pastel) and Light (Deep/Contrast) themes.
+- **Gutter markers:** Matching elements shown in gutter markers of the same color.
 
-### Dual Scopes
+### Compact menu
+
+- **All controlled from a single widget**
+
+![Menu widger](./images/control-icon.png)
+
+- **Dedicated 2nd level menu**
+
+![Menu widget](./images/menu-icons.png)
+
+### Multi Scopes
 
 **Control where your highlights appear using the Status Bar switcher:**
 
 - **Single File:** Highlights only appear in the active editor.
 - **All Open Files:** Highlights automatically propagate to all visible editors (split panes, grid layouts).
 
-### Dual Styles
+### Multiple Styles
 
 **Toggle between two visual modes to suit your preference:**
 
@@ -35,8 +46,15 @@
 **Use the "Manage Highlights" command to fine-tune your setup without restarting:**
 
 - **In-Place Editing:** Rename highlighted patterns instantly.
+    - **Toggle between:**
+        - **Plain text**
+        - **Whole words**
+        - **Regular expressions**
 - **Mode Cycling:** Toggle a highlight between Plain Text, Whole Word `\b`, and Regex `.*` modes with a single click.
 - **Color Picker:** Manually reassign colors, with a smart filter that hides colors already in use.
+
+![Context matching](./images/context-matching.png)
+
 
 ### Profile Persistence
 

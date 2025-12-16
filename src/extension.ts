@@ -66,35 +66,13 @@ export function activate(context: vscode.ExtensionContext) {
     let colorIndex = 0;
     let currentProfileName: string | undefined = undefined;
 
-    // --- Status Bar Items ---
-    
-    // Priority: Scope(100) > Style(99) > Opacity(98) > Contrast(97)
-    
-    // 1. Scope Indicator
-    const scopeStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-    scopeStatusBar.command = 'multiScopeHighlighter.toggleScope';
-    scopeStatusBar.tooltip = "Scope: Single File / All Open Files";
-    context.subscriptions.push(scopeStatusBar);
+    // --- Status Bar Item (Single) ---
+    const mainStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    mainStatusBar.command = 'multiScopeHighlighter.showMenu';
+    mainStatusBar.tooltip = "Multi-Scope Highlighter Main Menu";
+    context.subscriptions.push(mainStatusBar);
 
-    // 2. Style Indicator
-    const styleStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
-    styleStatusBar.command = 'multiScopeHighlighter.toggleStyle';
-    styleStatusBar.tooltip = "Style: Fill / Hybrid / Box";
-    context.subscriptions.push(styleStatusBar);
-
-    // 3. Opacity Indicator
-    const opacityStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 98);
-    opacityStatusBar.command = 'multiScopeHighlighter.setOpacity';
-    opacityStatusBar.tooltip = "Set Highlight Opacity";
-    context.subscriptions.push(opacityStatusBar);
-
-    // 4. Contrast Indicator
-    const contrastStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 97);
-    contrastStatusBar.command = 'multiScopeHighlighter.toggleContrast';
-    contrastStatusBar.tooltip = "Text Contrast: Inherit Syntax / Force Black & White";
-    context.subscriptions.push(contrastStatusBar);
-
-    updateStatusBars();
+    updateStatusBar();
 
     // --- Helper Functions ---
 
@@ -122,29 +100,11 @@ export function activate(context: vscode.ExtensionContext) {
         return colorKey;
     }
 
-    function updateStatusBars() {
-        const config = getConfiguration();
-
-        // Scope
-        scopeStatusBar.text = `$(files) ${isGlobalScope ? 'All' : 'Single'}`;
-        scopeStatusBar.show();
-
-        // Style
-        let styleLabel = 'Fill';
-        if (styleMode === 'box') styleLabel = 'Box';
-        if (styleMode === 'hybrid') styleLabel = 'Hybrid';
-        styleStatusBar.text = `$(paintcan) ${styleLabel}`;
-        styleStatusBar.show();
-
-        // Opacity
-        const pct = Math.round(config.opacity * 100);
-        opacityStatusBar.text = `$(circle-filled) ${pct}%`;
-        opacityStatusBar.show();
-
-        // Contrast
-        const contrastLabel = config.contrast === 'force-contrast' ? 'B&W' : 'Auto';
-        contrastStatusBar.text = `$(color-mode) ${contrastLabel}`;
-        contrastStatusBar.show();
+    function updateStatusBar() {
+        const count = highlightMap.size;
+        const countText = count > 0 ? ` ${count}` : '';
+        mainStatusBar.text = `🎨${countText}`;
+        mainStatusBar.show();
     }
 
     function getNextColorKey(): string {
@@ -247,6 +207,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         decorationMap.set(pattern, decorationType);
         highlightMap.set(pattern, { color: colorKey, mode });
+        updateStatusBar();
     }
 
     function removeHighlight(pattern: string) {
@@ -255,6 +216,7 @@ export function activate(context: vscode.ExtensionContext) {
             decoration.dispose();
             decorationMap.delete(pattern);
             highlightMap.delete(pattern);
+            updateStatusBar();
         }
     }
 
@@ -264,6 +226,7 @@ export function activate(context: vscode.ExtensionContext) {
         highlightMap.clear();
         colorIndex = 0;
         currentProfileName = undefined;
+        updateStatusBar();
     }
 
     function refreshAllDecorations() {
@@ -291,6 +254,101 @@ export function activate(context: vscode.ExtensionContext) {
 
     // --- Commands ---
 
+    const showMenu = vscode.commands.registerCommand('multiScopeHighlighter.showMenu', async () => {
+        const quickPick = vscode.window.createQuickPick();
+        quickPick.title = 'Multi-Scope Highlighter Menu';
+        quickPick.placeholder = 'Select an action (ESC to close)';
+
+        const generateItems = () => {
+            const config = getConfiguration();
+            const contrastLabel = config.contrast === 'force-contrast' ? 'B&W' : 'Auto';
+            const opacityPct = Math.round(config.opacity * 100);
+            const scopeLabel = isGlobalScope ? 'All Open Files' : 'Single File';
+            
+            let styleLabel = 'Fill';
+            if (styleMode === 'box') styleLabel = 'Box';
+            if (styleMode === 'hybrid') styleLabel = 'Hybrid';
+
+            return [
+                { 
+                    label: '🖍️ Manage Highlights', 
+                    description: `${highlightMap.size} active`,
+                    detail: 'Edit text, change colors, or delete specific highlights' 
+                },
+                { 
+                    label: '👁️ Scope', 
+                    description: scopeLabel,
+                    detail: 'Toggle between highlighting the active file or all open files'
+                },
+                { 
+                    label: '🖌️ Style', 
+                    description: styleLabel,
+                    detail: 'Cycle visual style: Fill -> Hybrid -> Box'
+                },
+                { 
+                    label: '💧 Opacity', 
+                    description: `${opacityPct}%`,
+                    detail: 'Set the transparency of the highlight background'
+                },
+                { 
+                    label: '🌗 Contrast', 
+                    description: contrastLabel,
+                    detail: 'Toggle between syntax highlighting and high-contrast text'
+                },
+                { 
+                    label: '🗑️ Clear All', 
+                    description: '',
+                    detail: 'Remove all active highlights immediately'
+                }
+            ];
+        };
+
+        quickPick.items = generateItems();
+
+        quickPick.onDidAccept(async () => {
+            const selected = quickPick.selectedItems[0];
+            if (!selected) return;
+
+            // --- Sub-menu logic with "Return to Main Menu" ---
+            
+            if (selected.label.includes('Manage Highlights')) {
+                quickPick.dispose();
+                await vscode.commands.executeCommand('multiScopeHighlighter.manageHighlights');
+                vscode.commands.executeCommand('multiScopeHighlighter.showMenu');
+            
+            } else if (selected.label.includes('Opacity')) {
+                quickPick.dispose();
+                await vscode.commands.executeCommand('multiScopeHighlighter.setOpacity');
+                vscode.commands.executeCommand('multiScopeHighlighter.showMenu');
+
+            } else if (selected.label.includes('Scope')) {
+                vscode.commands.executeCommand('multiScopeHighlighter.toggleScope');
+                quickPick.items = generateItems(); 
+            
+            } else if (selected.label.includes('Style')) {
+                vscode.commands.executeCommand('multiScopeHighlighter.toggleStyle');
+                quickPick.items = generateItems(); 
+            
+            } else if (selected.label.includes('Contrast')) {
+                await vscode.commands.executeCommand('multiScopeHighlighter.toggleContrast');
+                quickPick.items = generateItems();
+
+            } else if (selected.label.includes('Clear All')) {
+                vscode.commands.executeCommand('multiScopeHighlighter.clearAll');
+                quickPick.dispose();
+            }
+        });
+        
+        const disposable = vscode.workspace.onDidChangeConfiguration(e => {
+            if (e.affectsConfiguration('multiScopeHighlighter')) {
+                quickPick.items = generateItems();
+            }
+        });
+        quickPick.onDidHide(() => disposable.dispose());
+
+        quickPick.show();
+    });
+
     const toggleHighlight = vscode.commands.registerCommand('multiScopeHighlighter.toggleHighlight', () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) { return; }
@@ -317,7 +375,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     const toggleScope = vscode.commands.registerCommand('multiScopeHighlighter.toggleScope', () => {
         isGlobalScope = !isGlobalScope;
-        updateStatusBars();
+        updateStatusBar(); 
         if (!isGlobalScope) {
             const activeEditor = vscode.window.activeTextEditor;
             vscode.window.visibleTextEditors.forEach(editor => {
@@ -339,10 +397,11 @@ export function activate(context: vscode.ExtensionContext) {
         } else {
             styleMode = 'fill';
         }
-        updateStatusBars();
+        updateStatusBar();
         refreshAllDecorations();
     });
 
+    // Wrapped in async so showMenu can await it
     const setOpacity = vscode.commands.registerCommand('multiScopeHighlighter.setOpacity', async () => {
         const picks = ['0.1', '0.2', '0.35', '0.5', '0.75', '1.0'];
         const selected = await vscode.window.showQuickPick(picks, { 
@@ -354,6 +413,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    // Wrapped in async so showMenu can await it
     const toggleContrast = vscode.commands.registerCommand('multiScopeHighlighter.toggleContrast', async () => {
         const config = vscode.workspace.getConfiguration('multiScopeHighlighter');
         const current = config.get<string>('textContrast', 'inherit');
@@ -443,162 +503,175 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    // Returns a Promise so we can await its closure in showMenu
     const manageHighlights = vscode.commands.registerCommand('multiScopeHighlighter.manageHighlights', () => {
-        if (highlightMap.size === 0) {
-            vscode.window.showInformationMessage('No active highlights to manage.');
-            return;
-        }
+        return new Promise<void>((resolve) => {
+            if (highlightMap.size === 0) {
+                vscode.window.showInformationMessage('No active highlights to manage.');
+                resolve();
+                return;
+            }
 
-        const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { pattern: string }>();
-        quickPick.title = "Manage Highlights";
-        quickPick.placeholder = "Click row to Color. Buttons: [Edit] [Mode] [Delete]";
+            const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { pattern: string }>();
+            quickPick.title = "Manage Highlights";
+            quickPick.placeholder = "Click row to Color. Buttons: [Edit] [Mode] [Delete]";
 
-        let isEditing = false;
-        quickPick.onDidHide(() => {
-            if (!isEditing) quickPick.dispose();
-        });
-
-        const getModeIcon = (mode: HighlightMode) => {
-            if (mode === 'regex') return new vscode.ThemeIcon('regex');
-            if (mode === 'whole') return new vscode.ThemeIcon('whole-word');
-            return new vscode.ThemeIcon('symbol-text');
-        };
-
-        const getModeLabel = (mode: HighlightMode) => {
-            if (mode === 'regex') return 'Regex';
-            if (mode === 'whole') return 'Whole Word';
-            return 'Text';
-        };
-
-        const refreshItems = () => {
-            const items = Array.from(highlightMap.entries()).map(([pattern, details]) => {
-                const visualColor = getColorValue(details.color);
-                const colorName = PALETTE[details.color] ? details.color : 'Custom';
-
-                return {
-                    label: pattern,
-                    description: `[${getModeLabel(details.mode)}] • ${colorName}`, 
-                    pattern: pattern, 
-                    iconPath: getIconUri(visualColor, 'rect'),
-                    buttons: [
-                        { iconPath: new vscode.ThemeIcon('edit'), tooltip: 'Edit Pattern' },
-                        { iconPath: getModeIcon(details.mode), tooltip: `Current: ${getModeLabel(details.mode)}. Click to Cycle.` },
-                        { iconPath: new vscode.ThemeIcon('trash'), tooltip: 'Delete' }
-                    ]
-                };
-            });
-            quickPick.items = items;
-        };
-
-        refreshItems();
-
-        quickPick.onDidChangeSelection(async (selection) => {
-            if (!selection[0]) return;
-            const pattern = selection[0].pattern;
-            isEditing = true;
-
-            const usedColors = new Set<string>();
-            highlightMap.forEach((details, key) => {
-                if (key !== pattern) usedColors.add(details.color);
-            });
-
-            let availableKeys = PALETTE_KEYS.filter(key => !usedColors.has(key));
-            if (availableKeys.length === 0) availableKeys = PALETTE_KEYS;
-
-            const colorPicker = vscode.window.createQuickPick();
-            colorPicker.title = `Pick Color for '${pattern}'`;
+            let isEditing = false;
             
-            colorPicker.items = availableKeys.map(key => ({
-                label: key, 
-                iconPath: getIconUri(getColorValue(key), 'circle') 
-            }));
-
-            colorPicker.onDidAccept(() => {
-                const selected = colorPicker.selectedItems[0];
-                if (selected) {
-                    const oldDetails = highlightMap.get(pattern);
-                    if (oldDetails) {
-                        addHighlight(pattern, { ...oldDetails, color: selected.label });
-                        triggerUpdate();
-                    }
+            // Resolve the promise when this menu closes
+            quickPick.onDidHide(() => {
+                if (!isEditing) {
+                    quickPick.dispose();
+                    resolve();
                 }
-                colorPicker.hide();
             });
-            
-            colorPicker.onDidHide(() => {
-                colorPicker.dispose();
-                isEditing = false;
-                refreshItems();
-                quickPick.show();
-            });
-            
-            quickPick.hide();
-            colorPicker.show();
-            quickPick.selectedItems = [];
-        });
 
-        quickPick.onDidTriggerItemButton(async (e) => {
-            const pattern = e.item.pattern;
-            const details = highlightMap.get(pattern);
-            if (!details) return;
-            const tooltip = e.button.tooltip || '';
+            const getModeIcon = (mode: HighlightMode) => {
+                if (mode === 'regex') return new vscode.ThemeIcon('regex');
+                if (mode === 'whole') return new vscode.ThemeIcon('whole-word');
+                return new vscode.ThemeIcon('symbol-text');
+            };
 
-            if (tooltip === 'Delete') {
-                removeHighlight(pattern);
-                refreshItems();
-                triggerUpdate();
-                if (highlightMap.size === 0) { isEditing = false; quickPick.hide(); }
-            
-            } else if (tooltip.includes('Click to Cycle')) {
-                let newMode: HighlightMode = 'text';
-                if (details.mode === 'text') newMode = 'whole';
-                else if (details.mode === 'whole') newMode = 'regex';
-                addHighlight(pattern, { ...details, mode: newMode });
-                refreshItems();
-                triggerUpdate();
+            const getModeLabel = (mode: HighlightMode) => {
+                if (mode === 'regex') return 'Regex';
+                if (mode === 'whole') return 'Whole Word';
+                return 'Text';
+            };
 
-            } else if (tooltip === 'Edit Pattern') {
-                isEditing = true;
-                quickPick.hide();
+            const refreshItems = () => {
+                const items = Array.from(highlightMap.entries()).map(([pattern, details]) => {
+                    const visualColor = getColorValue(details.color);
+                    const colorName = PALETTE[details.color] ? details.color : 'Custom';
 
-                const newPattern = await vscode.window.showInputBox({
-                    value: pattern,
-                    prompt: `Edit pattern (${details.mode})`,
-                    validateInput: (val) => {
-                        if (details.mode === 'regex') {
-                            try { new RegExp(val); return null; } 
-                            catch (err) { return 'Invalid Regex Pattern'; }
-                        }
-                        return null;
-                    }
+                    return {
+                        label: pattern,
+                        description: `[${getModeLabel(details.mode)}] • ${colorName}`, 
+                        pattern: pattern, 
+                        iconPath: getIconUri(visualColor, 'rect'),
+                        buttons: [
+                            { iconPath: new vscode.ThemeIcon('edit'), tooltip: 'Edit Pattern' },
+                            { iconPath: getModeIcon(details.mode), tooltip: `Current: ${getModeLabel(details.mode)}. Click to Cycle.` },
+                            { iconPath: new vscode.ThemeIcon('trash'), tooltip: 'Delete' }
+                        ]
+                    };
+                });
+                quickPick.items = items;
+            };
+
+            refreshItems();
+
+            quickPick.onDidChangeSelection(async (selection) => {
+                if (!selection[0]) return;
+                const pattern = selection[0].pattern;
+                isEditing = true; // prevent resolve on temporary hide
+
+                const usedColors = new Set<string>();
+                highlightMap.forEach((details, key) => {
+                    if (key !== pattern) usedColors.add(details.color);
                 });
 
-                if (newPattern && newPattern !== pattern) {
-                    const entries = Array.from(highlightMap.entries());
-                    const index = entries.findIndex(([k]) => k === pattern);
-                    if (index !== -1) {
-                        // 1. Dispose old
-                        decorationMap.get(pattern)?.dispose();
-                        decorationMap.delete(pattern);
+                let availableKeys = PALETTE_KEYS.filter(key => !usedColors.has(key));
+                if (availableKeys.length === 0) availableKeys = PALETTE_KEYS;
 
-                        // 2. Update Map Order
-                        entries[index] = [newPattern, details];
-                        highlightMap.clear();
-                        entries.forEach(([p, d]) => highlightMap.set(p, d));
-                        
-                        // 3. Add new decoration
-                        addHighlight(newPattern, details);
-                        
-                        triggerUpdate();
+                const colorPicker = vscode.window.createQuickPick();
+                colorPicker.title = `Pick Color for '${pattern}'`;
+                
+                colorPicker.items = availableKeys.map(key => ({
+                    label: key, 
+                    iconPath: getIconUri(getColorValue(key), 'circle') 
+                }));
+
+                colorPicker.onDidAccept(() => {
+                    const selected = colorPicker.selectedItems[0];
+                    if (selected) {
+                        const oldDetails = highlightMap.get(pattern);
+                        if (oldDetails) {
+                            addHighlight(pattern, { ...oldDetails, color: selected.label });
+                            triggerUpdate();
+                        }
                     }
-                }
-                isEditing = false;
-                refreshItems(); 
-                quickPick.show();
-            }
-        });
+                    colorPicker.hide();
+                });
+                
+                colorPicker.onDidHide(() => {
+                    colorPicker.dispose();
+                    isEditing = false;
+                    refreshItems();
+                    quickPick.show(); // return to manager
+                });
+                
+                quickPick.hide();
+                colorPicker.show();
+                quickPick.selectedItems = [];
+            });
 
-        quickPick.show();
+            quickPick.onDidTriggerItemButton(async (e) => {
+                const pattern = e.item.pattern;
+                const details = highlightMap.get(pattern);
+                if (!details) return;
+                const tooltip = e.button.tooltip || '';
+
+                if (tooltip === 'Delete') {
+                    removeHighlight(pattern);
+                    refreshItems();
+                    triggerUpdate();
+                    if (highlightMap.size === 0) { 
+                        isEditing = false; 
+                        quickPick.hide(); 
+                        resolve(); 
+                    }
+                
+                } else if (tooltip.includes('Click to Cycle')) {
+                    let newMode: HighlightMode = 'text';
+                    if (details.mode === 'text') newMode = 'whole';
+                    else if (details.mode === 'whole') newMode = 'regex';
+                    addHighlight(pattern, { ...details, mode: newMode });
+                    refreshItems();
+                    triggerUpdate();
+
+                } else if (tooltip === 'Edit Pattern') {
+                    isEditing = true;
+                    quickPick.hide();
+
+                    const newPattern = await vscode.window.showInputBox({
+                        value: pattern,
+                        prompt: `Edit pattern (${details.mode})`,
+                        validateInput: (val) => {
+                            if (details.mode === 'regex') {
+                                try { new RegExp(val); return null; } 
+                                catch (err) { return 'Invalid Regex Pattern'; }
+                            }
+                            return null;
+                        }
+                    });
+
+                    if (newPattern && newPattern !== pattern) {
+                        const entries = Array.from(highlightMap.entries());
+                        const index = entries.findIndex(([k]) => k === pattern);
+                        if (index !== -1) {
+                            // 1. Dispose old
+                            decorationMap.get(pattern)?.dispose();
+                            decorationMap.delete(pattern);
+
+                            // 2. Update Map Order
+                            entries[index] = [newPattern, details];
+                            highlightMap.clear();
+                            entries.forEach(([p, d]) => highlightMap.set(p, d));
+                            
+                            // 3. Add new decoration
+                            addHighlight(newPattern, details);
+                            
+                            triggerUpdate();
+                        }
+                    }
+                    isEditing = false;
+                    refreshItems(); 
+                    quickPick.show();
+                }
+            });
+
+            quickPick.show();
+        });
     });
 
     // --- Event Listeners ---
@@ -629,12 +702,12 @@ export function activate(context: vscode.ExtensionContext) {
 
     vscode.workspace.onDidChangeConfiguration(e => {
         if (e.affectsConfiguration('multiScopeHighlighter')) {
-            updateStatusBars(); // Refresh bars immediately on config change
+            updateStatusBar();
             refreshAllDecorations();
         }
     }, null, context.subscriptions);
 
-    context.subscriptions.push(toggleHighlight, clearAll, toggleScope, saveProfile, loadProfile, deleteProfile, manageHighlights, toggleStyle, setOpacity, toggleContrast);
+    context.subscriptions.push(toggleHighlight, clearAll, toggleScope, saveProfile, loadProfile, deleteProfile, manageHighlights, toggleStyle, setOpacity, toggleContrast, showMenu);
 }
 
 export function deactivate() {}
