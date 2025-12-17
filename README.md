@@ -55,9 +55,7 @@
 
 ## 🛠️ Configuration
 
-You can customize the visual appearance of highlights directly from the Status Bar:
-
-![Settings](./images/control-icon.png)
+- **Customize the visual appearance of highlights directly from the Status Bar.**
 
 - **All controlled from a single widget**
 
