@@ -12,16 +12,6 @@
 - **Adaptive Themes:** Colors automatically adjust to look great in both Dark (Neon/Pastel) and Light (Deep/Contrast) themes.
 - **Gutter markers:** Matching elements shown in gutter markers of the same color.
 
-### Compact menu
-
-- **All controlled from a single widget**
-
-![Menu widger](./images/control-icon.png)
-
-- **Dedicated 2nd level menu**
-
-![Menu widget](./images/menu-icons.png)
-
 ### Multi Scopes
 
 **Control where your highlights appear using the Status Bar switcher:**
@@ -65,9 +55,19 @@
 
 ## 🛠️ Configuration
 
-You can customize the visual appearance of highlights in your VS Code Settings (`Ctrl+,`) OR directly from the Status Bar:
+You can customize the visual appearance of highlights directly from the Status Bar:
 
-![Settings](./images/ui.png)
+![Settings](./images/control-icon.png)
+
+- **All controlled from a single widget**
+
+![Menu widger](./images/control-icon.png)
+
+- **Dedicated 2nd level menu**
+
+![Menu widget](./images/menu-icons.png)
+
+
 
 | Setting | Description | Default |
 | :--- | :--- | :--- |
