@@ -7,8 +7,8 @@
   },
   "displayName": "multi-scope-highlighter",
   "description": "Highlight multiple selections across multiple files in VS Code.",
-  "icon": "images/rainbow.png",
-  "version": "0.0.9",
+  "icon": "images/icon128.png",
+  "version": "0.0.10",
   "engines": {
     "vscode": "^1.106.1"
   },
@@ -38,6 +38,11 @@
           ],
           "default": "inherit",
           "description": "Text color style. 'inherit' keeps syntax highlighting; 'force-contrast' sets text to Black/White for maximum readability."
+        },
+        "multiScopeHighlighter.maxLinesForWholeFile": {
+          "type": "number",
+          "default": 10000,
+          "description": "Performance: If a file has more lines than this, highlights will only appear in the visible area (viewport) to prevent lag. Set to 0 to always scan the whole file."
         }
       }
     },

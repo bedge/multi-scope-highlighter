@@ -9,12 +9,14 @@ type StyleMode = 'fill' | 'box' | 'hybrid';
 interface HighlightDetails {
     color: string;
     mode: HighlightMode;
+    // Optimization: Cache the regex so we don't rebuild it on every keystroke
+    cachedRegex?: RegExp; 
 }
 
 interface AdaptiveColor {
     dark: string;
     light: string;
-    text: string; // High contrast text color (Black/White)
+    text: string; 
 }
 
 // --- Adaptive Color Palette ---
@@ -65,6 +67,9 @@ export function activate(context: vscode.ExtensionContext) {
     let styleMode: StyleMode = 'hybrid'; 
     let colorIndex = 0;
     let currentProfileName: string | undefined = undefined;
+    
+    // Performance: Debounce timer
+    let updateTimeout: NodeJS.Timeout | undefined = undefined;
 
     // --- Status Bar Item (Single) ---
     const mainStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
@@ -81,6 +86,7 @@ export function activate(context: vscode.ExtensionContext) {
         return {
             opacity: config.get<number>('fillOpacity', 0.35),
             contrast: config.get<string>('textContrast', 'inherit'),
+            maxLines: config.get<number>('maxLinesForWholeFile', 10000)
         };
     }
 
@@ -103,8 +109,6 @@ export function activate(context: vscode.ExtensionContext) {
     function updateStatusBar() {
         const count = highlightMap.size;
         const countText = count > 0 ? ` ${count}` : '';
-        
-        // CHANGED: Use Rainbow Emoji
         mainStatusBar.text = `🌈${countText}`;
         mainStatusBar.show();
     }
@@ -115,49 +119,88 @@ export function activate(context: vscode.ExtensionContext) {
         return key;
     }
 
+    // Optimization: Debounce the update trigger
     function triggerUpdate() {
-        if (isGlobalScope) {
-            vscode.window.visibleTextEditors.forEach(editor => applyDecorations(editor));
-        } else {
-            const activeEditor = vscode.window.activeTextEditor;
-            if (activeEditor) {
-                applyDecorations(activeEditor);
-            }
+        if (updateTimeout) {
+            clearTimeout(updateTimeout);
         }
+        updateTimeout = setTimeout(() => {
+            if (isGlobalScope) {
+                vscode.window.visibleTextEditors.forEach(editor => applyDecorations(editor));
+            } else {
+                const activeEditor = vscode.window.activeTextEditor;
+                if (activeEditor) {
+                    applyDecorations(activeEditor);
+                }
+            }
+        }, 75); // 75ms wait time
     }
 
     function applyDecorations(editor: vscode.TextEditor) {
-        const text = editor.document.getText();
+        const config = getConfiguration();
+        
+        // Large File Optimization:
+        // If file is huge, only scan visible ranges. This kills lag but disables overview ruler for off-screen text.
+        const isLargeFile = config.maxLines > 0 && editor.document.lineCount > config.maxLines;
+        
+        let text: string;
+        let visibleOffset = 0;
+
+        if (isLargeFile) {
+            // Only get text for visible ranges (approximate for simplicity + small buffer)
+            const ranges = editor.visibleRanges;
+            // For simplicity in this optimization, we just handle the first primary range extended
+            // Handling discontiguous ranges is complex for indexes, so we just take the full extent of visibility
+            if (ranges.length === 0) return;
+            
+            const startLine = Math.max(0, ranges[0].start.line - 5);
+            const endLine = Math.min(editor.document.lineCount - 1, ranges[ranges.length - 1].end.line + 5);
+            const scanRange = new vscode.Range(startLine, 0, endLine, 1000);
+            
+            text = editor.document.getText(scanRange);
+            visibleOffset = editor.document.offsetAt(scanRange.start);
+        } else {
+            text = editor.document.getText();
+        }
 
         decorationMap.forEach((decorationType, pattern) => {
             const details = highlightMap.get(pattern);
             if (!details) return;
 
             const ranges: vscode.Range[] = [];
-            let regex: RegExp | null = null;
 
-            try {
-                if (details.mode === 'regex') {
-                    regex = new RegExp(pattern, 'g');
-                } else if (details.mode === 'whole') {
-                    const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    regex = new RegExp(`\\b${escaped}\\b`, 'g');
-                } else {
-                    const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    regex = new RegExp(escaped, 'g');
-                }
-            } catch (e) {
-                return; 
-            }
-
-            if (regex) {
-                let match;
-                while ((match = regex.exec(text))) {
-                    const startPos = editor.document.positionAt(match.index);
-                    const endPos = editor.document.positionAt(match.index + match[0].length);
+            // Optimization: Use indexOf for plain text (no regex overhead)
+            if (details.mode === 'text') {
+                const len = pattern.length;
+                if (len === 0) return;
+                
+                let index = text.indexOf(pattern);
+                while (index !== -1) {
+                    const startPos = editor.document.positionAt(visibleOffset + index);
+                    const endPos = editor.document.positionAt(visibleOffset + index + len);
                     ranges.push(new vscode.Range(startPos, endPos));
+                    
+                    // Move forward
+                    index = text.indexOf(pattern, index + len);
+                }
+
+            } else {
+                // Regex / Whole Word Mode
+                // Use cached regex if available
+                const regex = details.cachedRegex; 
+                if (regex) {
+                    // Reset lastIndex because 'g' regexes are stateful
+                    regex.lastIndex = 0;
+                    
+                    let match;
+                    while ((match = regex.exec(text))) {
+                        const startPos = editor.document.positionAt(visibleOffset + match.index);
+                        const endPos = editor.document.positionAt(visibleOffset + match.index + match[0].length);
+                        ranges.push(new vscode.Range(startPos, endPos));
+                    }
                 }
             }
+            
             editor.setDecorations(decorationType, ranges);
         });
     }
@@ -172,10 +215,24 @@ export function activate(context: vscode.ExtensionContext) {
         const colorKey = details?.color || getNextColorKey();
         const mode = details?.mode || 'text';
         
+        // Cache the Regex immediately if needed
+        let cachedRegex: RegExp | undefined = undefined;
+        try {
+            if (mode === 'regex') {
+                cachedRegex = new RegExp(pattern, 'g');
+            } else if (mode === 'whole') {
+                const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                cachedRegex = new RegExp(`\\b${escaped}\\b`, 'g');
+            }
+        } catch (e) {
+            vscode.window.showErrorMessage(`Invalid Regex: ${pattern}`);
+            return;
+        }
+
+        // Setup Visuals
         const paletteItem = PALETTE[colorKey];
         const kind = vscode.window.activeColorTheme.kind;
         const isLight = (kind === vscode.ColorThemeKind.Light || kind === vscode.ColorThemeKind.HighContrastLight);
-        
         const baseColorStr = paletteItem ? (isLight ? paletteItem.light : paletteItem.dark) : colorKey;
 
         const finalBgColor = applyOpacity(baseColorStr, config.opacity);
@@ -208,7 +265,7 @@ export function activate(context: vscode.ExtensionContext) {
         });
 
         decorationMap.set(pattern, decorationType);
-        highlightMap.set(pattern, { color: colorKey, mode });
+        highlightMap.set(pattern, { color: colorKey, mode, cachedRegex });
         updateStatusBar();
     }
 
@@ -321,8 +378,6 @@ export function activate(context: vscode.ExtensionContext) {
             const selected = quickPick.selectedItems[0];
             if (!selected) return;
 
-            // --- Sub-menu logic with "Return to Main Menu" ---
-            
             if (selected.label.includes('Manage Highlights')) {
                 quickPick.dispose();
                 await vscode.commands.executeCommand('multiScopeHighlighter.manageHighlights');
