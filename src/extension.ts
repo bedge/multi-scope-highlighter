@@ -103,7 +103,9 @@ export function activate(context: vscode.ExtensionContext) {
     function updateStatusBar() {
         const count = highlightMap.size;
         const countText = count > 0 ? ` ${count}` : '';
-        mainStatusBar.text = `🎨${countText}`;
+        
+        // CHANGED: Use Rainbow Emoji
+        mainStatusBar.text = `🌈${countText}`;
         mainStatusBar.show();
     }
 
@@ -276,12 +278,12 @@ export function activate(context: vscode.ExtensionContext) {
                     detail: 'Edit text, change colors, or delete specific highlights' 
                 },
                 { 
-                    label: '👁️ Scope', 
+                    label: '🔭 Scope', 
                     description: scopeLabel,
                     detail: 'Toggle between highlighting the active file or all open files'
                 },
                 { 
-                    label: '🖌️ Style', 
+                    label: '🎭 Style', 
                     description: styleLabel,
                     detail: 'Cycle visual style: Fill -> Hybrid -> Box'
                 },
@@ -296,7 +298,17 @@ export function activate(context: vscode.ExtensionContext) {
                     detail: 'Toggle between syntax highlighting and high-contrast text'
                 },
                 { 
-                    label: '🗑️ Clear All', 
+                    label: '💾 Save Profile', 
+                    description: currentProfileName ? `(${currentProfileName})` : '',
+                    detail: 'Save current highlights to a JSON file'
+                },
+                { 
+                    label: '📂 Load Profile', 
+                    description: '',
+                    detail: 'Load highlights from a saved JSON file'
+                },
+                { 
+                    label: '🔥 Clear All', 
                     description: '',
                     detail: 'Remove all active highlights immediately'
                 }
@@ -333,6 +345,14 @@ export function activate(context: vscode.ExtensionContext) {
                 await vscode.commands.executeCommand('multiScopeHighlighter.toggleContrast');
                 quickPick.items = generateItems();
 
+            } else if (selected.label.includes('Save Profile')) {
+                quickPick.dispose();
+                await vscode.commands.executeCommand('multiScopeHighlighter.saveProfile');
+
+            } else if (selected.label.includes('Load Profile')) {
+                quickPick.dispose();
+                await vscode.commands.executeCommand('multiScopeHighlighter.loadProfile');
+                
             } else if (selected.label.includes('Clear All')) {
                 vscode.commands.executeCommand('multiScopeHighlighter.clearAll');
                 quickPick.dispose();

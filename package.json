@@ -7,8 +7,8 @@
   },
   "displayName": "multi-scope-highlighter",
   "description": "Highlight multiple selections across multiple files in VS Code.",
-  "icon": "images/icon128.png",
-  "version": "0.0.7",
+  "icon": "images/rainbow.png",
+  "version": "0.0.8",
   "engines": {
     "vscode": "^1.106.1"
   },
