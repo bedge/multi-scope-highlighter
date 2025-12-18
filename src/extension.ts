@@ -16,31 +16,31 @@ interface HighlightDetails {
 interface AdaptiveColor {
     dark: string;
     light: string;
-    text: string; 
+    text: string; // High contrast text color (Black/White)
 }
 
-// --- Adaptive Color Palette ---
+// --- Adaptive Color Palette (Optimized for Dark Mode: Neon/Bold/Primary) ---
 const PALETTE: Record<string, AdaptiveColor> = {
-    'Neon Yellow':   { dark: 'rgba(255, 255, 0, 0.8)',    light: 'rgba(204, 204, 0, 0.6)', text: '#000000' },
-    'Neon Green':    { dark: 'rgba(57, 255, 20, 0.8)',    light: 'rgba(0, 128, 0, 0.5)',   text: '#000000' },
-    'Cyan':          { dark: 'rgba(0, 255, 255, 0.8)',    light: 'rgba(0, 139, 139, 0.5)', text: '#000000' },
-    'Magenta':       { dark: 'rgba(255, 0, 255, 0.8)',    light: 'rgba(139, 0, 139, 0.5)', text: '#FFFFFF' },
-    'Bright Orange': { dark: 'rgba(255, 165, 0, 0.8)',    light: 'rgba(255, 140, 0, 0.5)', text: '#000000' },
-    'Hot Pink':      { dark: 'rgba(255, 105, 180, 0.8)',  light: 'rgba(199, 21, 133, 0.5)', text: '#FFFFFF' },
-    'Red':           { dark: 'rgba(255, 0, 0, 0.8)',      light: 'rgba(220, 20, 60, 0.5)', text: '#FFFFFF' },
-    'Lime':          { dark: 'rgba(124, 252, 0, 0.8)',    light: 'rgba(50, 205, 50, 0.5)', text: '#000000' },
-    'Dodger Blue':   { dark: 'rgba(30, 144, 255, 0.8)',   light: 'rgba(0, 0, 255, 0.4)',   text: '#FFFFFF' },
-    'Purple':        { dark: 'rgba(186, 85, 211, 0.8)',   light: 'rgba(128, 0, 128, 0.5)', text: '#FFFFFF' },
-    'Teal':          { dark: 'rgba(64, 224, 208, 0.8)',   light: 'rgba(0, 128, 128, 0.5)', text: '#000000' },
-    'Gold':          { dark: 'rgba(255, 215, 0, 0.8)',    light: 'rgba(184, 134, 11, 0.5)', text: '#000000' },
-    'Salmon':        { dark: 'rgba(250, 128, 114, 0.8)',  light: 'rgba(165, 42, 42, 0.5)', text: '#000000' },
-    'Sky Blue':      { dark: 'rgba(135, 206, 235, 0.8)',  light: 'rgba(70, 130, 180, 0.5)', text: '#000000' },
-    'Orchid':        { dark: 'rgba(218, 112, 214, 0.8)',  light: 'rgba(148, 0, 211, 0.5)', text: '#FFFFFF' },
-    'Spring Green':  { dark: 'rgba(0, 255, 127, 0.8)',    light: 'rgba(34, 139, 34, 0.5)', text: '#000000' },
-    'Tomato':        { dark: 'rgba(255, 99, 71, 0.8)',    light: 'rgba(178, 34, 34, 0.5)', text: '#FFFFFF' },
-    'Khaki':         { dark: 'rgba(240, 230, 140, 0.8)',  light: 'rgba(189, 183, 107, 0.5)', text: '#000000' },
-    'Lavender':      { dark: 'rgba(230, 230, 250, 0.8)',  light: 'rgba(100, 100, 100, 0.3)', text: '#000000' },
-    'Slate Blue':    { dark: 'rgba(106, 90, 205, 0.8)',   light: 'rgba(72, 61, 139, 0.5)', text: '#FFFFFF' }
+    'Neon Yellow':   { dark: 'rgba(255, 255, 0, 0.9)',    light: 'rgba(255, 255, 0, 0.5)',   text: '#000000' },
+    'Electric Lime': { dark: 'rgba(0, 255, 0, 0.9)',      light: 'rgba(0, 255, 0, 0.5)',     text: '#000000' },
+    'Cyan':          { dark: 'rgba(0, 255, 255, 0.9)',    light: 'rgba(0, 255, 255, 0.5)',   text: '#000000' },
+    'Hot Pink':      { dark: 'rgba(255, 20, 147, 0.9)',   light: 'rgba(255, 20, 147, 0.5)',  text: '#FFFFFF' },
+    'Bright Orange': { dark: 'rgba(255, 69, 0, 0.9)',     light: 'rgba(255, 165, 0, 0.5)',   text: '#FFFFFF' },
+    'Vivid Red':     { dark: 'rgba(255, 0, 0, 0.9)',      light: 'rgba(255, 0, 0, 0.5)',     text: '#FFFFFF' },
+    'Deep Sky Blue': { dark: 'rgba(0, 191, 255, 0.9)',    light: 'rgba(0, 191, 255, 0.5)',   text: '#000000' },
+    'Magenta':       { dark: 'rgba(255, 0, 255, 0.9)',    light: 'rgba(255, 0, 255, 0.5)',   text: '#FFFFFF' },
+    'Gold':          { dark: 'rgba(255, 215, 0, 0.9)',    light: 'rgba(255, 215, 0, 0.5)',   text: '#000000' },
+    'Spring Green':  { dark: 'rgba(0, 255, 127, 0.9)',    light: 'rgba(0, 255, 127, 0.5)',   text: '#000000' },
+    'Dark Violet':   { dark: 'rgba(148, 0, 211, 0.9)',    light: 'rgba(148, 0, 211, 0.5)',   text: '#FFFFFF' },
+    'Crimson':       { dark: 'rgba(220, 20, 60, 0.9)',    light: 'rgba(220, 20, 60, 0.5)',   text: '#FFFFFF' },
+    'Turquoise':     { dark: 'rgba(64, 224, 208, 0.9)',   light: 'rgba(64, 224, 208, 0.5)',  text: '#000000' },
+    'Coral':         { dark: 'rgba(255, 127, 80, 0.9)',   light: 'rgba(255, 127, 80, 0.5)',  text: '#000000' },
+    'Royal Blue':    { dark: 'rgba(65, 105, 225, 0.9)',   light: 'rgba(65, 105, 225, 0.5)',  text: '#FFFFFF' },
+    'Chartreuse':    { dark: 'rgba(127, 255, 0, 0.9)',    light: 'rgba(127, 255, 0, 0.5)',   text: '#000000' },
+    'Fuchsia':       { dark: 'rgba(255, 0, 255, 0.9)',    light: 'rgba(255, 0, 255, 0.5)',   text: '#FFFFFF' },
+    'Aquamarine':    { dark: 'rgba(127, 255, 212, 0.9)',  light: 'rgba(127, 255, 212, 0.5)', text: '#000000' },
+    'Tomato':        { dark: 'rgba(255, 99, 71, 0.9)',    light: 'rgba(255, 99, 71, 0.5)',   text: '#FFFFFF' },
+    'Dodger Blue':   { dark: 'rgba(30, 144, 255, 0.9)',   light: 'rgba(30, 144, 255, 0.5)',  text: '#FFFFFF' }
 };
 
 const PALETTE_KEYS = Object.keys(PALETTE);
@@ -58,6 +58,7 @@ function getIconUri(color: string, shape: 'rect' | 'circle' = 'rect'): vscode.Ur
 }
 
 export function activate(context: vscode.ExtensionContext) {
+    console.log('Extension is activating...'); // <--- BREAKPOINT HERE
 
     // --- State Management ---
     let decorationMap: Map<string, vscode.TextEditorDecorationType> = new Map();
