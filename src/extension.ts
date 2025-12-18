@@ -120,6 +120,81 @@ export function activate(context: vscode.ExtensionContext) {
         return key;
     }
 
+    function stripUnmatchedDelimiters(word: string): string {
+        if (!word) {
+            return word;
+        }
+
+        const pairs: Record<string, string> = {
+            '(': ')',
+            '[': ']',
+            '{': '}',
+            '"': '"',
+            "'": "'",
+            '`': '`'
+        };
+
+        let result = word;
+        let changed = true;
+
+        // Keep stripping until no more unmatched delimiters are found
+        while (changed) {
+            changed = false;
+            const first = result[0];
+            const last = result[result.length - 1];
+
+            // Check if first char is an opening delimiter
+            if (first && pairs[first]) {
+                const expectedClosing = pairs[first];
+                // For symmetric delimiters (quotes), check if there's a matching one at the end
+                if (first === expectedClosing) {
+                    // Same delimiter for open/close (quotes)
+                    if (last !== expectedClosing || result.length < 2) {
+                        // Unmatched quote at start
+                        result = result.substring(1);
+                        changed = true;
+                        continue;
+                    }
+                } else {
+                    // Different open/close (brackets, parens, braces)
+                    if (last !== expectedClosing) {
+                        // Unmatched opening delimiter
+                        result = result.substring(1);
+                        changed = true;
+                        continue;
+                    }
+                }
+            }
+
+            // Check if last char is a closing delimiter without checking first again
+            const closingDelimiters = Object.values(pairs);
+            if (last && closingDelimiters.includes(last) && result.length > 0) {
+                // Find if this closing has a matching opening
+                const openingDelimiter = Object.keys(pairs).find(key => pairs[key] === last);
+                if (openingDelimiter) {
+                    if (openingDelimiter === last) {
+                        // Symmetric delimiter (quote) - already handled above if matched
+                        // If we're here, it means first !== last, so it's unmatched
+                        if (first !== last) {
+                            result = result.substring(0, result.length - 1);
+                            changed = true;
+                            continue;
+                        }
+                    } else {
+                        // Different open/close - check if opening exists
+                        if (first !== openingDelimiter) {
+                            result = result.substring(0, result.length - 1);
+                            changed = true;
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+
+        return result;
+    }
+
     // Optimization: Debounce the update trigger
     function triggerUpdate() {
         if (updateTimeout) {
@@ -152,7 +227,9 @@ export function activate(context: vscode.ExtensionContext) {
             const ranges = editor.visibleRanges;
             // For simplicity in this optimization, we just handle the first primary range extended
             // Handling discontiguous ranges is complex for indexes, so we just take the full extent of visibility
-            if (ranges.length === 0) return;
+            if (ranges.length === 0) {
+                return;
+            }
             
             const startLine = Math.max(0, ranges[0].start.line - 5);
             const endLine = Math.min(editor.document.lineCount - 1, ranges[ranges.length - 1].end.line + 5);
@@ -166,14 +243,18 @@ export function activate(context: vscode.ExtensionContext) {
 
         decorationMap.forEach((decorationType, pattern) => {
             const details = highlightMap.get(pattern);
-            if (!details) return;
+            if (!details) {
+                return;
+            }
 
             const ranges: vscode.Range[] = [];
 
             // Optimization: Use indexOf for plain text (no regex overhead)
             if (details.mode === 'text') {
                 const len = pattern.length;
-                if (len === 0) return;
+                if (len === 0) {
+                    return;
+                }
                 
                 let index = text.indexOf(pattern);
                 while (index !== -1) {
@@ -326,8 +407,12 @@ export function activate(context: vscode.ExtensionContext) {
             const scopeLabel = isGlobalScope ? 'All Open Files' : 'Single File';
             
             let styleLabel = 'Fill';
-            if (styleMode === 'box') styleLabel = 'Box';
-            if (styleMode === 'hybrid') styleLabel = 'Hybrid';
+            if (styleMode === 'box') {
+                styleLabel = 'Box';
+            }
+            if (styleMode === 'hybrid') {
+                styleLabel = 'Hybrid';
+            }
 
             return [
                 { 
@@ -377,7 +462,9 @@ export function activate(context: vscode.ExtensionContext) {
 
         quickPick.onDidAccept(async () => {
             const selected = quickPick.selectedItems[0];
-            if (!selected) return;
+            if (!selected) {
+                return;
+            }
 
             if (selected.label.includes('Manage Highlights')) {
                 quickPick.dispose();
@@ -433,15 +520,168 @@ export function activate(context: vscode.ExtensionContext) {
         const text = editor.document.getText(selection);
 
         if (!text) {
+            // No text selected: check if cursor is inside any highlighted range
+            const cursorPosition = editor.selection.active;
+            const cursorOffset = editor.document.offsetAt(cursorPosition);
+            const documentText = editor.document.getText();
+            
+            // Check all highlights to see if cursor is inside any of them
+            for (const [pattern, details] of highlightMap.entries()) {
+                let foundAtCursor = false;
+                
+                if (details.mode === 'text') {
+                    // Plain text search
+                    const len = pattern.length;
+                    if (len === 0) {
+                        continue;
+                    }
+                    
+                    let index = documentText.indexOf(pattern);
+                    while (index !== -1) {
+                        const endIndex = index + len;
+                        if (cursorOffset >= index && cursorOffset <= endIndex) {
+                            foundAtCursor = true;
+                            break;
+                        }
+                        index = documentText.indexOf(pattern, endIndex);
+                    }
+                } else {
+                    // Regex / Whole Word Mode
+                    const regex = details.cachedRegex;
+                    if (regex) {
+                        regex.lastIndex = 0;
+                        let match;
+                        while ((match = regex.exec(documentText))) {
+                            const startIndex = match.index;
+                            const endIndex = match.index + match[0].length;
+                            if (cursorOffset >= startIndex && cursorOffset <= endIndex) {
+                                foundAtCursor = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                if (foundAtCursor) {
+                    removeHighlight(pattern);
+                    vscode.window.showInformationMessage(`Removed highlight: "${pattern}"`);
+                    triggerUpdate();
+                    return;
+                }
+            }
+            
             vscode.window.showInformationMessage('No text selected');
             return;
         }
 
+        // Text is selected: check if selection overlaps with any existing highlight
+        const selectionStart = editor.document.offsetAt(selection.start);
+        const selectionEnd = editor.document.offsetAt(selection.end);
+        const documentText = editor.document.getText();
+        
+        for (const [pattern, details] of highlightMap.entries()) {
+            if (details.mode === 'text') {
+                // Plain text search
+                const len = pattern.length;
+                if (len === 0) {
+                    continue;
+                }
+                
+                let index = documentText.indexOf(pattern);
+                while (index !== -1) {
+                    const highlightStart = index;
+                    const highlightEnd = index + len;
+                    
+                    // Check if selection overlaps with this highlight
+                    if (!(selectionEnd < highlightStart || selectionStart > highlightEnd)) {
+                        // Overlap detected - preserve color and remove old highlight, then add new one with same color
+                        const preservedColor = details.color;
+                        const preservedMode = details.mode;
+                        removeHighlight(pattern);
+                        addHighlight(text, { color: preservedColor, mode: preservedMode });
+                        vscode.window.showInformationMessage(`Updated highlight: "${pattern}" → "${text}"`);
+                        triggerUpdate();
+                        return;
+                    }
+                    
+                    index = documentText.indexOf(pattern, highlightEnd);
+                }
+            } else {
+                // Regex / Whole Word Mode
+                const regex = details.cachedRegex;
+                if (regex) {
+                    regex.lastIndex = 0;
+                    let match;
+                    while ((match = regex.exec(documentText))) {
+                        const highlightStart = match.index;
+                        const highlightEnd = match.index + match[0].length;
+                        
+                        // Check if selection overlaps with this highlight
+                        if (!(selectionEnd < highlightStart || selectionStart > highlightEnd)) {
+                            // Overlap detected - preserve color and remove old highlight, then add new one with same color
+                            const preservedColor = details.color;
+                            const preservedMode = details.mode;
+                            removeHighlight(pattern);
+                            addHighlight(text, { color: preservedColor, mode: preservedMode });
+                            vscode.window.showInformationMessage(`Updated highlight: "${pattern}" → "${text}"`);
+                            triggerUpdate();
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
+        // No overlap found - standard toggle behavior
         if (highlightMap.has(text)) {
             removeHighlight(text);
         } else {
             addHighlight(text);
         }
+        triggerUpdate();
+    });
+
+    const highlightWords = vscode.commands.registerCommand('multiScopeHighlighter.highlightWords', () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) { return; }
+
+        const selection = editor.selection;
+        const selectedText = editor.document.getText(selection);
+
+        if (!selectedText || selectedText.trim().length === 0) {
+            // No text selected: highlight the word at cursor position
+            const cursorPosition = editor.selection.active;
+            const wordRange = editor.document.getWordRangeAtPosition(cursorPosition);
+            
+            if (!wordRange) {
+                vscode.window.showInformationMessage('No word found at cursor position.');
+                return;
+            }
+
+            const word = editor.document.getText(wordRange);
+            if (word) {
+                addHighlight(word);
+                vscode.window.showInformationMessage(`Highlighted: "${word}"`);
+            }
+        } else {
+            // Text selected: split by whitespace and highlight each word
+            const words = selectedText.split(/\s+/)
+                .filter(w => w.length > 0)
+                .map(w => stripUnmatchedDelimiters(w))
+                .filter(w => w.length > 0);
+            
+            if (words.length === 0) {
+                vscode.window.showInformationMessage('No words found in selection.');
+                return;
+            }
+
+            words.forEach(word => {
+                addHighlight(word);
+            });
+            
+            vscode.window.showInformationMessage(`Highlighted ${words.length} word(s): ${words.join(', ')}`);
+        }
+
         triggerUpdate();
     });
 
@@ -459,7 +699,9 @@ export function activate(context: vscode.ExtensionContext) {
                     decorationMap.forEach(dec => editor.setDecorations(dec, []));
                 }
             });
-            if (activeEditor) applyDecorations(activeEditor);
+            if (activeEditor) {
+                applyDecorations(activeEditor);
+            }
         } else {
             triggerUpdate();
         }
@@ -532,7 +774,9 @@ export function activate(context: vscode.ExtensionContext) {
             return;
         }
         const files = fs.readdirSync(savePath).filter(f => f.endsWith('.json'));
-        if (files.length === 0) return;
+        if (files.length === 0) {
+            return;
+        }
 
         const selected = await vscode.window.showQuickPick(files, { placeHolder: 'Select a profile to load' });
         if (!selected) { return; }
@@ -564,15 +808,21 @@ export function activate(context: vscode.ExtensionContext) {
         const savePath = getSavePath();
         if (!savePath) { return; }
         const files = fs.readdirSync(savePath).filter(f => f.endsWith('.json'));
-        if (files.length === 0) return;
+        if (files.length === 0) {
+            return;
+        }
 
         const selected = await vscode.window.showQuickPick(files, { placeHolder: 'Select a profile to DELETE' });
-        if (!selected) return;
+        if (!selected) {
+            return;
+        }
 
         try {
             fs.unlinkSync(path.join(savePath, selected));
             const deletedName = selected.replace('.json', '');
-            if (currentProfileName === deletedName) currentProfileName = undefined;
+            if (currentProfileName === deletedName) {
+                currentProfileName = undefined;
+            }
             vscode.window.showInformationMessage(`Profile '${deletedName}' deleted.`);
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to delete: ${error}`);
@@ -603,14 +853,22 @@ export function activate(context: vscode.ExtensionContext) {
             });
 
             const getModeIcon = (mode: HighlightMode) => {
-                if (mode === 'regex') return new vscode.ThemeIcon('regex');
-                if (mode === 'whole') return new vscode.ThemeIcon('whole-word');
+                if (mode === 'regex') {
+                    return new vscode.ThemeIcon('regex');
+                }
+                if (mode === 'whole') {
+                    return new vscode.ThemeIcon('whole-word');
+                }
                 return new vscode.ThemeIcon('symbol-text');
             };
 
             const getModeLabel = (mode: HighlightMode) => {
-                if (mode === 'regex') return 'Regex';
-                if (mode === 'whole') return 'Whole Word';
+                if (mode === 'regex') {
+                    return 'Regex';
+                }
+                if (mode === 'whole') {
+                    return 'Whole Word';
+                }
                 return 'Text';
             };
 
@@ -637,17 +895,23 @@ export function activate(context: vscode.ExtensionContext) {
             refreshItems();
 
             quickPick.onDidChangeSelection(async (selection) => {
-                if (!selection[0]) return;
+                if (!selection[0]) {
+                    return;
+                }
                 const pattern = selection[0].pattern;
                 isEditing = true; // prevent resolve on temporary hide
 
                 const usedColors = new Set<string>();
                 highlightMap.forEach((details, key) => {
-                    if (key !== pattern) usedColors.add(details.color);
+                    if (key !== pattern) {
+                        usedColors.add(details.color);
+                    }
                 });
 
                 let availableKeys = PALETTE_KEYS.filter(key => !usedColors.has(key));
-                if (availableKeys.length === 0) availableKeys = PALETTE_KEYS;
+                if (availableKeys.length === 0) {
+                    availableKeys = PALETTE_KEYS;
+                }
 
                 const colorPicker = vscode.window.createQuickPick();
                 colorPicker.title = `Pick Color for '${pattern}'`;
@@ -684,7 +948,9 @@ export function activate(context: vscode.ExtensionContext) {
             quickPick.onDidTriggerItemButton(async (e) => {
                 const pattern = e.item.pattern;
                 const details = highlightMap.get(pattern);
-                if (!details) return;
+                if (!details) {
+                    return;
+                }
                 const tooltip = e.button.tooltip || '';
 
                 if (tooltip === 'Delete') {
@@ -699,8 +965,11 @@ export function activate(context: vscode.ExtensionContext) {
                 
                 } else if (tooltip.includes('Click to Cycle')) {
                     let newMode: HighlightMode = 'text';
-                    if (details.mode === 'text') newMode = 'whole';
-                    else if (details.mode === 'whole') newMode = 'regex';
+                    if (details.mode === 'text') {
+                        newMode = 'whole';
+                    } else if (details.mode === 'whole') {
+                        newMode = 'regex';
+                    }
                     addHighlight(pattern, { ...details, mode: newMode });
                     refreshItems();
                     triggerUpdate();
@@ -757,13 +1026,17 @@ export function activate(context: vscode.ExtensionContext) {
     }, null, context.subscriptions);
 
     vscode.window.onDidChangeActiveTextEditor(editor => {
-        if (editor) triggerUpdate();
+        if (editor) {
+            triggerUpdate();
+        }
     }, null, context.subscriptions);
 
     vscode.workspace.onDidChangeTextDocument(event => {
         if (isGlobalScope) {
             const editor = vscode.window.visibleTextEditors.find(e => e.document === event.document);
-            if (editor) applyDecorations(editor);
+            if (editor) {
+                applyDecorations(editor);
+            }
         } else {
             const activeEditor = vscode.window.activeTextEditor;
             if (activeEditor && event.document === activeEditor.document) {
@@ -773,7 +1046,9 @@ export function activate(context: vscode.ExtensionContext) {
     }, null, context.subscriptions);
 
     vscode.window.onDidChangeVisibleTextEditors(editors => {
-        if(isGlobalScope) editors.forEach(e => applyDecorations(e));
+        if(isGlobalScope) {
+            editors.forEach(e => applyDecorations(e));
+        }
     }, null, context.subscriptions);
 
     vscode.workspace.onDidChangeConfiguration(e => {
@@ -783,7 +1058,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }, null, context.subscriptions);
 
-    context.subscriptions.push(toggleHighlight, clearAll, toggleScope, saveProfile, loadProfile, deleteProfile, manageHighlights, toggleStyle, setOpacity, toggleContrast, showMenu);
+    context.subscriptions.push(toggleHighlight, highlightWords, clearAll, toggleScope, saveProfile, loadProfile, deleteProfile, manageHighlights, toggleStyle, setOpacity, toggleContrast, showMenu);
 }
 
 export function deactivate() {}
