@@ -81,7 +81,8 @@
 
 | Command | Keybinding | Description |
 | :--- | :--- | :--- |
-| **Toggle Highlight** | `Ctrl+H` / `Cmd+H` | Highlights the selected word. If already highlighted, removes it. |
+| **Toggle Highlight** | `Ctrl+H` / `Cmd+H` | With text selected: toggles highlight for that text. Without selection: removes highlight at cursor position. If selection overlaps an existing highlight, updates that highlight to the new selection while preserving its color. |
+| **Highlight Words** | `Shift+Ctrl+H` / `Shift+Cmd+H` | With text selected: splits selection by whitespace and highlights each word individually (strips unmatched delimiters). Without selection: highlights the word at cursor position. |
 | **Manage Highlights** | *(via Palette)* | Opens the interactive manager to edit text, change colors, or cycle modes. |
 | **Clear All** | *(via Palette)* | Removes all highlights immediately. |
 
@@ -111,7 +112,9 @@
 
 **You can access these via the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):**
 
+- `Highlight: Open Menu`
 - `Highlight: Toggle Selection`
+- `Highlight: Add Word(s) at Cursor or from Selection`
 - `Highlight: Manage Current Highlights`
 - `Highlight: Clear All`
 - `Highlight: Toggle Scope (Single/All Open)`
