@@ -8,7 +8,7 @@
   "displayName": "multi-scope-highlighter",
   "description": "Highlight multiple selections across multiple files in VS Code.",
   "icon": "images/icon128.png",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "engines": {
     "vscode": "^1.106.1"
   },
@@ -113,14 +113,14 @@
     "keybindings": [
       {
         "command": "multiScopeHighlighter.toggleHighlight",
-        "key": "ctrl+h",
-        "mac": "cmd+h",
+        "key": "alt+q",
+        "mac": "option+q",
         "when": "editorTextFocus"
       },
       {
         "command": "multiScopeHighlighter.highlightWords",
-        "key": "shift+ctrl+h",
-        "mac": "shift+cmd+h",
+        "key": "shift+alt+q",
+        "mac": "shift+option+q",
         "when": "editorTextFocus"
       }
     ]

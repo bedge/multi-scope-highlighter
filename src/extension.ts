@@ -570,6 +570,18 @@ export function activate(context: vscode.ExtensionContext) {
                 }
             }
             
+            // No existing highlight found at cursor - try to get word at cursor and add it
+            const wordRange = editor.document.getWordRangeAtPosition(cursorPosition);
+            if (wordRange) {
+                const word = editor.document.getText(wordRange);
+                if (word) {
+                    addHighlight(word);
+                    vscode.window.showInformationMessage(`Highlighted: "${word}"`);
+                    triggerUpdate();
+                    return;
+                }
+            }
+            
             vscode.window.showInformationMessage('No text selected');
             return;
         }
