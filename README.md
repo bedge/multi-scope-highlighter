@@ -90,6 +90,17 @@
 
 **Tip:** All keybindings are customizable via VS Code's Keyboard Shortcuts editor.
 
+**Smart Delimiter Stripping:**
+
+When adding highlights from selections, unmatched delimiter pairs are automatically removed to ensure clean pattern matching:
+
+- **Supported pairs:** `()` `[]` `{}` `""` `''` ` `` `` `**` `~~` `__` `..`
+- **Multi-character support:** Handles consecutive delimiters like `**bold**`, `[[link]]`, `...ellipsis...`
+- **Auto-balance:** If selection is `"Service..."` but full text is `"...Service..."`, the trailing `...` is stripped to give `Service`
+- **Whitespace trimmed:** Leading/trailing spaces are removed before processing
+
+Example: Selecting `**word**` highlights as `word`, but selecting `**word` highlights as `word` (unmatched `**` removed).
+
 ### Status Bar Controls
 
 **Look for the indicators in the bottom right of your VS Code window:**
