@@ -131,7 +131,11 @@ export function activate(context: vscode.ExtensionContext) {
             '{': '}',
             '"': '"',
             "'": "'",
-            '`': '`'
+            '`': '`',
+            '*': '*',
+            '~': '~',
+            '_': '_',
+            '.': '.'
         };
 
         let result = word;
@@ -140,54 +144,81 @@ export function activate(context: vscode.ExtensionContext) {
         // Keep stripping until no more unmatched delimiters are found
         while (changed) {
             changed = false;
+            
+            if (result.length === 0) {
+                break;
+            }
+            
             const first = result[0];
             const last = result[result.length - 1];
 
-            // Check if first char is an opening delimiter
+            // Check if first char is a delimiter and count consecutive occurrences
             if (first && pairs[first]) {
                 const expectedClosing = pairs[first];
-                // For symmetric delimiters (quotes), check if there's a matching one at the end
-                if (first === expectedClosing) {
-                    // Same delimiter for open/close (quotes)
-                    if (last !== expectedClosing || result.length < 2) {
-                        // Unmatched quote at start
-                        result = result.substring(1);
-                        changed = true;
-                        continue;
-                    }
-                } else {
-                    // Different open/close (brackets, parens, braces)
-                    if (last !== expectedClosing) {
-                        // Unmatched opening delimiter
-                        result = result.substring(1);
+                
+                // Count consecutive opening delimiters at start
+                let openCount = 0;
+                for (let i = 0; i < result.length && result[i] === first; i++) {
+                    openCount++;
+                }
+                
+                // Count consecutive closing delimiters at end
+                let closeCount = 0;
+                for (let i = result.length - 1; i >= 0 && result[i] === expectedClosing; i--) {
+                    closeCount++;
+                }
+                
+                // For symmetric delimiters, need to ensure we're not counting the same characters
+                if (first === expectedClosing && openCount + closeCount >= result.length) {
+                    // All characters are the same delimiter - this is ambiguous
+                    // Strip from the start
+                    if (openCount > 0) {
+                        result = result.substring(openCount);
                         changed = true;
                         continue;
                     }
                 }
+                
+                // Check if they're balanced
+                if (openCount > 0 && closeCount > 0 && openCount === closeCount && result.length > openCount + closeCount) {
+                    // Balanced - skip to next iteration to check inner content
+                    // But first check if there are other unmatched delimiters
+                    const inner = result.substring(openCount, result.length - closeCount);
+                    if (inner.length === 0 || !Object.keys(pairs).includes(inner[0])) {
+                        // No more delimiters to strip
+                        break;
+                    }
+                    // Continue to check inner content (will be handled in next iteration)
+                } else if (openCount > closeCount) {
+                    // More opening than closing - strip excess opening
+                    const excess = openCount - closeCount;
+                    result = result.substring(excess);
+                    changed = true;
+                    continue;
+                } else if (closeCount > openCount) {
+                    // More closing than opening - strip excess closing
+                    const excess = closeCount - openCount;
+                    result = result.substring(0, result.length - excess);
+                    changed = true;
+                    continue;
+                }
             }
 
-            // Check if last char is a closing delimiter without checking first again
+            // Check if last char is a closing delimiter (but first is not its opening)
             const closingDelimiters = Object.values(pairs);
-            if (last && closingDelimiters.includes(last) && result.length > 0) {
-                // Find if this closing has a matching opening
+            if (last && closingDelimiters.includes(last)) {
+                // Find the corresponding opening delimiter
                 const openingDelimiter = Object.keys(pairs).find(key => pairs[key] === last);
-                if (openingDelimiter) {
-                    if (openingDelimiter === last) {
-                        // Symmetric delimiter (quote) - already handled above if matched
-                        // If we're here, it means first !== last, so it's unmatched
-                        if (first !== last) {
-                            result = result.substring(0, result.length - 1);
-                            changed = true;
-                            continue;
-                        }
-                    } else {
-                        // Different open/close - check if opening exists
-                        if (first !== openingDelimiter) {
-                            result = result.substring(0, result.length - 1);
-                            changed = true;
-                            continue;
-                        }
+                if (openingDelimiter && first !== openingDelimiter) {
+                    // Unmatched closing delimiter(s) at the end
+                    // Count consecutive closing delimiters
+                    let closeCount = 0;
+                    for (let i = result.length - 1; i >= 0 && result[i] === last; i--) {
+                        closeCount++;
                     }
+                    result = result.substring(0, result.length - closeCount);
+                    changed = true;
+                    continue;
                 }
             }
         }
@@ -645,10 +676,11 @@ export function activate(context: vscode.ExtensionContext) {
         }
 
         // No overlap found - standard toggle behavior
-        if (highlightMap.has(text)) {
-            removeHighlight(text);
+        const cleanedText = stripUnmatchedDelimiters(text.trim());
+        if (highlightMap.has(cleanedText)) {
+            removeHighlight(cleanedText);
         } else {
-            addHighlight(text);
+            addHighlight(cleanedText);
         }
         triggerUpdate();
     });
