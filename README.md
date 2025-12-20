@@ -77,14 +77,18 @@
 
 ## 🚀 Usage
 
-### Basic Commands
+### Adding & Removing Highlights
 
-| Command | Keybinding | Description |
+**Quick Reference:**
+
+| Action | Keybinding | Description |
 | :--- | :--- | :--- |
-| **Toggle Highlight** | `Ctrl+H` / `Cmd+H` | With text selected: toggles highlight for that text. Without selection: removes highlight at cursor position. If selection overlaps an existing highlight, updates that highlight to the new selection while preserving its color. |
-| **Highlight Words** | `Shift+Ctrl+H` / `Shift+Cmd+H` | With text selected: splits selection by whitespace and highlights each word individually (strips unmatched delimiters). Without selection: highlights the word at cursor position. |
-| **Manage Highlights** | *(via Palette)* | Opens the interactive manager to edit text, change colors, or cycle modes. |
-| **Clear All** | *(via Palette)* | Removes all highlights immediately. |
+| **Toggle Single** | `Alt+Q` / `Option+Q` | • With text selected: adds/removes that exact text<br>• Cursor in word (no selection): adds/removes that word<br>• Cursor in existing highlight: removes it |
+| **Toggle Multiple** | `Shift+Alt+Q` / `Shift+Option+Q` | • Selection with highlights: removes ALL highlights within selection<br>• Selection without highlights: adds all words in selection<br>• Cursor in word (no selection): adds that word |
+| **Context Menu** | Right-click | • With selection: "Toggle Selection"<br>• Without selection: "Manage Highlights" |
+| **Clear All** | Via Palette | Removes all highlights at once |
+
+**Tip:** All keybindings are customizable via VS Code's Keyboard Shortcuts editor.
 
 ### Status Bar Controls
 

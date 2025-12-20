@@ -676,22 +676,82 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.window.showInformationMessage(`Highlighted: "${word}"`);
             }
         } else {
-            // Text selected: split by whitespace and highlight each word
-            const words = selectedText.split(/\s+/)
-                .filter(w => w.length > 0)
-                .map(w => stripUnmatchedDelimiters(w))
-                .filter(w => w.length > 0);
+            // Text selected: check if any highlights exist within selection range
+            const selectionStart = editor.document.offsetAt(selection.start);
+            const selectionEnd = editor.document.offsetAt(selection.end);
+            const documentText = editor.document.getText();
+            const highlightsToRemove: string[] = [];
             
-            if (words.length === 0) {
-                vscode.window.showInformationMessage('No words found in selection.');
-                return;
+            // Check all existing highlights to see if they appear in the selection
+            for (const [pattern, details] of highlightMap.entries()) {
+                let foundInSelection = false;
+                
+                if (details.mode === 'text') {
+                    // Plain text search
+                    const len = pattern.length;
+                    if (len === 0) {
+                        continue;
+                    }
+                    
+                    let index = documentText.indexOf(pattern);
+                    while (index !== -1) {
+                        const highlightStart = index;
+                        const highlightEnd = index + len;
+                        
+                        // Check if this highlight instance is within or overlaps the selection
+                        if (!(highlightEnd <= selectionStart || highlightStart >= selectionEnd)) {
+                            foundInSelection = true;
+                            break;
+                        }
+                        index = documentText.indexOf(pattern, highlightEnd);
+                    }
+                } else {
+                    // Regex / Whole Word Mode
+                    const regex = details.cachedRegex;
+                    if (regex) {
+                        regex.lastIndex = 0;
+                        let match;
+                        while ((match = regex.exec(documentText))) {
+                            const highlightStart = match.index;
+                            const highlightEnd = match.index + match[0].length;
+                            
+                            // Check if this highlight instance is within or overlaps the selection
+                            if (!(highlightEnd <= selectionStart || highlightStart >= selectionEnd)) {
+                                foundInSelection = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                if (foundInSelection) {
+                    highlightsToRemove.push(pattern);
+                }
             }
-
-            words.forEach(word => {
-                addHighlight(word);
-            });
             
-            vscode.window.showInformationMessage(`Highlighted ${words.length} word(s): ${words.join(', ')}`);
+            if (highlightsToRemove.length > 0) {
+                // Toggle mode: remove all highlights found in selection
+                highlightsToRemove.forEach(pattern => {
+                    removeHighlight(pattern);
+                });
+                vscode.window.showInformationMessage(`Removed ${highlightsToRemove.length} highlight(s)`);
+            } else {
+                // Add mode: split by whitespace and highlight each word
+                const words = selectedText.split(/\s+/)
+                    .filter(w => w.length > 0)
+                    .map(w => stripUnmatchedDelimiters(w))
+                    .filter(w => w.length > 0);
+                
+                if (words.length === 0) {
+                    vscode.window.showInformationMessage('No words found in selection.');
+                    return;
+                }
+                
+                words.forEach(word => {
+                    addHighlight(word);
+                });
+                vscode.window.showInformationMessage(`Highlighted ${words.length} word(s): ${words.join(', ')}`);
+            }
         }
 
         triggerUpdate();
