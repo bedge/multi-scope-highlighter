@@ -87,8 +87,17 @@ export function activate(context: vscode.ExtensionContext) {
         return {
             opacity: config.get<number>('fillOpacity', 0.35),
             contrast: config.get<string>('textContrast', 'inherit'),
-            maxLines: config.get<number>('maxLinesForWholeFile', 10000)
+            maxLines: config.get<number>('maxLinesForWholeFile', 10000),
+            excludeNoiseWords: config.get<string[]>('excludeNoiseWords', [])
         };
+    }
+
+    function isNoiseWord(word: string): boolean {
+        if (!word || word.length === 0) {
+            return true;
+        }
+        const config = getConfiguration();
+        return config.excludeNoiseWords.includes(word);
     }
 
     function applyOpacity(rgbaColor: string, opacity: number): string {
@@ -547,10 +556,13 @@ export function activate(context: vscode.ExtensionContext) {
         const editor = vscode.window.activeTextEditor;
         if (!editor) { return; }
 
-        const selection = editor.selection;
-        const text = editor.document.getText(selection);
+        // Support column selection mode by processing all selections
+        const selections = editor.selections;
+        const allSelectedTexts = selections
+            .map(sel => editor.document.getText(sel))
+            .filter(text => text && text.trim().length > 0);
 
-        if (!text) {
+        if (allSelectedTexts.length === 0) {
             // No text selected: check if cursor is inside any highlighted range
             const cursorPosition = editor.selection.active;
             const cursorOffset = editor.document.offsetAt(cursorPosition);
@@ -617,11 +629,17 @@ export function activate(context: vscode.ExtensionContext) {
             return;
         }
 
-        // Text is selected: check if selection overlaps with any existing highlight
-        const selectionStart = editor.document.offsetAt(selection.start);
-        const selectionEnd = editor.document.offsetAt(selection.end);
+        // Text is selected: check if any selection overlaps with any existing highlight
         const documentText = editor.document.getText();
         
+        // Build array of all selection ranges for overlap checking
+        const selectionRanges = selections.map(sel => ({
+            start: editor.document.offsetAt(sel.start),
+            end: editor.document.offsetAt(sel.end),
+            text: editor.document.getText(sel)
+        }));
+        
+        // Check if any selection overlaps with existing highlights
         for (const [pattern, details] of highlightMap.entries()) {
             if (details.mode === 'text') {
                 // Plain text search
@@ -635,16 +653,16 @@ export function activate(context: vscode.ExtensionContext) {
                     const highlightStart = index;
                     const highlightEnd = index + len;
                     
-                    // Check if selection overlaps with this highlight
-                    if (!(selectionEnd < highlightStart || selectionStart > highlightEnd)) {
-                        // Overlap detected - preserve color and remove old highlight, then add new one with same color
-                        const preservedColor = details.color;
-                        const preservedMode = details.mode;
-                        removeHighlight(pattern);
-                        addHighlight(text, { color: preservedColor, mode: preservedMode });
-                        vscode.window.showInformationMessage(`Updated highlight: "${pattern}" → "${text}"`);
-                        triggerUpdate();
-                        return;
+                    // Check if any selection overlaps with this highlight
+                    for (const range of selectionRanges) {
+                        if (!(range.end < highlightStart || range.start > highlightEnd)) {
+                            // Overlap detected - for column mode with multiple selections, 
+                            // just remove the highlight (simpler behavior)
+                            removeHighlight(pattern);
+                            vscode.window.showInformationMessage(`Removed highlight: "${pattern}"`);
+                            triggerUpdate();
+                            return;
+                        }
                     }
                     
                     index = documentText.indexOf(pattern, highlightEnd);
@@ -659,28 +677,51 @@ export function activate(context: vscode.ExtensionContext) {
                         const highlightStart = match.index;
                         const highlightEnd = match.index + match[0].length;
                         
-                        // Check if selection overlaps with this highlight
-                        if (!(selectionEnd < highlightStart || selectionStart > highlightEnd)) {
-                            // Overlap detected - preserve color and remove old highlight, then add new one with same color
-                            const preservedColor = details.color;
-                            const preservedMode = details.mode;
-                            removeHighlight(pattern);
-                            addHighlight(text, { color: preservedColor, mode: preservedMode });
-                            vscode.window.showInformationMessage(`Updated highlight: "${pattern}" → "${text}"`);
-                            triggerUpdate();
-                            return;
+                        // Check if any selection overlaps with this highlight
+                        for (const range of selectionRanges) {
+                            if (!(range.end < highlightStart || range.start > highlightEnd)) {
+                                // Overlap detected - remove the highlight
+                                removeHighlight(pattern);
+                                vscode.window.showInformationMessage(`Removed highlight: "${pattern}"`);
+                                triggerUpdate();
+                                return;
+                            }
                         }
                     }
                 }
             }
         }
 
-        // No overlap found - standard toggle behavior
-        const cleanedText = stripUnmatchedDelimiters(text.trim());
-        if (highlightMap.has(cleanedText)) {
-            removeHighlight(cleanedText);
-        } else {
-            addHighlight(cleanedText);
+        // No overlap found - add all unique selected texts as highlights (excluding noise words)
+        const uniqueTexts = new Set(allSelectedTexts.map(text => stripUnmatchedDelimiters(text.trim())));
+        let addedCount = 0;
+        let filteredCount = 0;
+        
+        for (const cleanedText of uniqueTexts) {
+            if (cleanedText && !highlightMap.has(cleanedText)) {
+                if (isNoiseWord(cleanedText)) {
+                    filteredCount++;
+                } else {
+                    addHighlight(cleanedText);
+                    addedCount++;
+                }
+            }
+        }
+        
+        if (addedCount > 0) {
+            if (addedCount === 1) {
+                const msg = filteredCount > 0 
+                    ? `Highlighted: "${Array.from(uniqueTexts).find(t => !isNoiseWord(t))}" (filtered ${filteredCount} noise word(s))`
+                    : `Highlighted: "${Array.from(uniqueTexts).find(t => !isNoiseWord(t))}"`;
+                vscode.window.showInformationMessage(msg);
+            } else {
+                const msg = filteredCount > 0
+                    ? `Highlighted ${addedCount} unique text(s) (filtered ${filteredCount} noise word(s))`
+                    : `Highlighted ${addedCount} unique text(s)`;
+                vscode.window.showInformationMessage(msg);
+            }
+        } else if (filteredCount > 0) {
+            vscode.window.showInformationMessage(`Filtered ${filteredCount} noise word(s) - nothing to highlight`);
         }
         triggerUpdate();
     });
@@ -689,10 +730,15 @@ export function activate(context: vscode.ExtensionContext) {
         const editor = vscode.window.activeTextEditor;
         if (!editor) { return; }
 
-        const selection = editor.selection;
-        const selectedText = editor.document.getText(selection);
+        // Support column selection mode by processing all selections
+        const selections = editor.selections;
+        
+        // Collect all selected text from all selections (for column mode)
+        const allSelectedTexts = selections
+            .map(sel => editor.document.getText(sel))
+            .filter(text => text && text.trim().length > 0);
 
-        if (!selectedText || selectedText.trim().length === 0) {
+        if (allSelectedTexts.length === 0) {
             // No text selected: highlight the word at cursor position
             const cursorPosition = editor.selection.active;
             const wordRange = editor.document.getWordRangeAtPosition(cursorPosition);
@@ -708,13 +754,17 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.window.showInformationMessage(`Highlighted: "${word}"`);
             }
         } else {
-            // Text selected: check if any highlights exist within selection range
-            const selectionStart = editor.document.offsetAt(selection.start);
-            const selectionEnd = editor.document.offsetAt(selection.end);
+            // Text selected: check if any highlights exist within any selection range
             const documentText = editor.document.getText();
             const highlightsToRemove: string[] = [];
             
-            // Check all existing highlights to see if they appear in the selection
+            // Build array of all selection ranges for overlap checking
+            const selectionRanges = selections.map(sel => ({
+                start: editor.document.offsetAt(sel.start),
+                end: editor.document.offsetAt(sel.end)
+            }));
+            
+            // Check all existing highlights to see if they appear in any selection
             for (const [pattern, details] of highlightMap.entries()) {
                 let foundInSelection = false;
                 
@@ -730,9 +780,15 @@ export function activate(context: vscode.ExtensionContext) {
                         const highlightStart = index;
                         const highlightEnd = index + len;
                         
-                        // Check if this highlight instance is within or overlaps the selection
-                        if (!(highlightEnd <= selectionStart || highlightStart >= selectionEnd)) {
-                            foundInSelection = true;
+                        // Check if this highlight instance overlaps with any selection
+                        for (const range of selectionRanges) {
+                            if (!(highlightEnd <= range.start || highlightStart >= range.end)) {
+                                foundInSelection = true;
+                                break;
+                            }
+                        }
+                        
+                        if (foundInSelection) {
                             break;
                         }
                         index = documentText.indexOf(pattern, highlightEnd);
@@ -747,9 +803,15 @@ export function activate(context: vscode.ExtensionContext) {
                             const highlightStart = match.index;
                             const highlightEnd = match.index + match[0].length;
                             
-                            // Check if this highlight instance is within or overlaps the selection
-                            if (!(highlightEnd <= selectionStart || highlightStart >= selectionEnd)) {
-                                foundInSelection = true;
+                            // Check if this highlight instance overlaps with any selection
+                            for (const range of selectionRanges) {
+                                if (!(highlightEnd <= range.start || highlightStart >= range.end)) {
+                                    foundInSelection = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (foundInSelection) {
                                 break;
                             }
                         }
@@ -762,27 +824,48 @@ export function activate(context: vscode.ExtensionContext) {
             }
             
             if (highlightsToRemove.length > 0) {
-                // Toggle mode: remove all highlights found in selection
+                // Toggle mode: remove all highlights found in any selection
                 highlightsToRemove.forEach(pattern => {
                     removeHighlight(pattern);
                 });
                 vscode.window.showInformationMessage(`Removed ${highlightsToRemove.length} highlight(s)`);
             } else {
-                // Add mode: split by whitespace and highlight each word
-                const words = selectedText.split(/\s+/)
-                    .filter(w => w.length > 0)
-                    .map(w => stripUnmatchedDelimiters(w))
-                    .filter(w => w.length > 0);
+                // Add mode: split by whitespace and highlight each word from all selections (excluding noise)
+                const allWords = new Set<string>();
+                const filteredWords = new Set<string>();
                 
-                if (words.length === 0) {
+                allSelectedTexts.forEach(selectedText => {
+                    const words = selectedText.split(/\s+/)
+                        .filter(w => w.length > 0)
+                        .map(w => stripUnmatchedDelimiters(w))
+                        .filter(w => w.length > 0);
+                    words.forEach(word => {
+                        if (isNoiseWord(word)) {
+                            filteredWords.add(word);
+                        } else {
+                            allWords.add(word);
+                        }
+                    });
+                });
+                
+                if (allWords.size === 0 && filteredWords.size === 0) {
                     vscode.window.showInformationMessage('No words found in selection.');
                     return;
                 }
                 
-                words.forEach(word => {
+                if (allWords.size === 0) {
+                    vscode.window.showInformationMessage(`Filtered ${filteredWords.size} noise word(s) - nothing to highlight`);
+                    return;
+                }
+                
+                allWords.forEach(word => {
                     addHighlight(word);
                 });
-                vscode.window.showInformationMessage(`Highlighted ${words.length} word(s): ${words.join(', ')}`);
+                const wordList = Array.from(allWords);
+                const msg = filteredWords.size > 0
+                    ? `Highlighted ${allWords.size} word(s) (filtered ${filteredWords.size} noise): ${wordList.join(', ')}`
+                    : `Highlighted ${allWords.size} word(s): ${wordList.join(', ')}`;
+                vscode.window.showInformationMessage(msg);
             }
         }
 

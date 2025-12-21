@@ -101,6 +101,22 @@ When adding highlights from selections, unmatched delimiter pairs are automatica
 
 Example: Selecting `**word**` highlights as `word`, but selecting `**word` highlights as `word` (unmatched `**` removed).
 
+**Column/Block Selection Support:**
+
+Both keybindings (`Alt+Q` and `Shift+Alt+Q`) fully support **column selection mode**:
+
+- **Multiple selections:** All selected text blocks are processed simultaneously
+- **Deduplication:** Unique words across all selections are highlighted automatically
+- **Remove mode:** If any selection overlaps existing highlights, those highlights are removed
+
+**Noise Character Filtering:**
+
+When using `Shift+Alt+Q` to highlight multiple words from a selection, common punctuation and symbols are automatically filtered out:
+
+- **Default exclusions:** `-`, `=`, `:`, `,`, `;`, `.`, `!`, `?`, `|`, `&`, `+`, `*`, `/`, `\`, brackets, quotes, and more
+- **Customizable:** Edit the `multiScopeHighlighter.excludeNoiseWords` setting to add or remove items from the filter list
+- **Feedback:** The status message shows how many noise words were filtered (e.g., "Highlighted 5 word(s) (filtered 3 noise)")
+
 ### Status Bar Controls
 
 **Look for the indicators in the bottom right of your VS Code window:**
