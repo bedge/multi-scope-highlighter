@@ -43,6 +43,47 @@
           "type": "number",
           "default": 10000,
           "description": "Performance: If a file has more lines than this, highlights will only appear in the visible area (viewport) to prevent lag. Set to 0 to always scan the whole file."
+        },
+        "multiScopeHighlighter.excludeNoiseWords": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "-",
+            "=",
+            ":",
+            ",",
+            ";",
+            ".",
+            "!",
+            "?",
+            "|",
+            "&",
+            "+",
+            "*",
+            "/",
+            "\\",
+            "<",
+            ">",
+            "[",
+            "]",
+            "(",
+            ")",
+            "{",
+            "}",
+            "'",
+            "\"",
+            "`",
+            "~",
+            "@",
+            "#",
+            "$",
+            "%",
+            "^",
+            "_"
+          ],
+          "description": "List of words/characters to exclude from highlighting when using block selection. Useful for filtering out noise like punctuation. Add or remove items as needed."
         }
       }
     },
