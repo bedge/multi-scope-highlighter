@@ -116,13 +116,9 @@ The `auto` mode works better for low `opacity` settings:
 | **Toggle Single** | `Alt+Q` / `Option+Q` | • With text selected: adds/removes that exact text<br>• Cursor in word (no selection): adds/removes that word<br>• Cursor in existing highlight: removes it |
 | **Toggle Multiple** | `Shift+Alt+Q` / `Shift+Option+Q` | • Selection with highlights: removes ALL highlights within selection<br>• Selection without highlights: adds all words in selection<br>• Cursor in word (no selection): adds that word |
 
-  * Column select and bulk add, then covert from string to word to eliminate similar matches:
+* Column select bulk add, and covert from string to word to eliminate unwanted matches:
 
-<video controls width="800">
-    <source src="https://github.com/bedge/multi-scope-highlighter/raw/refs/heads/main/images/col-sel-multiple.mp4" type="video/mp4">
-    <source src="https://github.com/bedge/multi-scope-highlighter/raw/refs/heads/main/images/col-sel-multiple.webm" type="video/webm">
-    Your browser does not support the video tag.
-</video>
+![Column selection demo](./images/col-sel-multiple.gif)
 
 
 | Action | Keybinding | Description |
