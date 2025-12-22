@@ -72,6 +72,54 @@ export function activate(context: vscode.ExtensionContext) {
     // Performance: Debounce timer
     let updateTimeout: NodeJS.Timeout | undefined = undefined;
 
+    // --- Undo/Redo Stack ---
+    interface HistoryState {
+        highlightMap: Map<string, HighlightDetails>;
+        colorIndex: number;
+    }
+    
+    let historyStack: HistoryState[] = [];
+    let historyIndex = -1;
+    const MAX_HISTORY = 50;
+
+    function captureState(): HistoryState {
+        return {
+            highlightMap: new Map(highlightMap),
+            colorIndex: colorIndex
+        };
+    }
+
+    function pushHistory() {
+        // Remove any redo history if we're not at the end
+        if (historyIndex < historyStack.length - 1) {
+            historyStack = historyStack.slice(0, historyIndex + 1);
+        }
+        
+        // Add current state to history
+        historyStack.push(captureState());
+        
+        // Limit history size
+        if (historyStack.length > MAX_HISTORY) {
+            historyStack.shift();
+        } else {
+            historyIndex++;
+        }
+    }
+
+    function restoreState(state: HistoryState) {
+        // Clear current decorations
+        decorationMap.forEach(dec => dec.dispose());
+        decorationMap.clear();
+        
+        // Restore highlight map and color index
+        highlightMap = new Map(state.highlightMap);
+        colorIndex = state.colorIndex;
+        
+        // Recreate decorations
+        refreshAllDecorations();
+        updateStatusBar();
+    }
+
     // --- Status Bar Item (Single) ---
     const mainStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     mainStatusBar.command = 'multiScopeHighlighter.showMenu';
@@ -80,15 +128,21 @@ export function activate(context: vscode.ExtensionContext) {
 
     updateStatusBar();
 
+    // Initialize history with empty state
+    historyStack.push(captureState());
+    historyIndex = 0;
+
     // --- Helper Functions ---
 
     function getConfiguration() {
         const config = vscode.workspace.getConfiguration('multiScopeHighlighter');
+        const noiseWordsStr = config.get<string>('excludeNoiseWords', '');
+        const excludeNoiseWords = noiseWordsStr.split(/\s+/).filter(w => w.length > 0);
         return {
             opacity: config.get<number>('fillOpacity', 0.35),
             contrast: config.get<string>('textContrast', 'inherit'),
             maxLines: config.get<number>('maxLinesForWholeFile', 10000),
-            excludeNoiseWords: config.get<string[]>('excludeNoiseWords', [])
+            excludeNoiseWords: excludeNoiseWords
         };
     }
 
@@ -556,6 +610,9 @@ export function activate(context: vscode.ExtensionContext) {
         const editor = vscode.window.activeTextEditor;
         if (!editor) { return; }
 
+        // Save state before making changes
+        pushHistory();
+
         // Support column selection mode by processing all selections
         const selections = editor.selections;
         const allSelectedTexts = selections
@@ -730,6 +787,9 @@ export function activate(context: vscode.ExtensionContext) {
         const editor = vscode.window.activeTextEditor;
         if (!editor) { return; }
 
+        // Save state before making changes
+        pushHistory();
+
         // Support column selection mode by processing all selections
         const selections = editor.selections;
         
@@ -873,7 +933,29 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     const clearAll = vscode.commands.registerCommand('multiScopeHighlighter.clearAll', () => {
+        pushHistory();
         clearAllHighlights();
+        triggerUpdate();
+    });
+
+    const undoHighlight = vscode.commands.registerCommand('multiScopeHighlighter.undo', () => {
+        if (historyIndex > 0) {
+            historyIndex--;
+            restoreState(historyStack[historyIndex]);
+            vscode.window.showInformationMessage('Undo highlight change');
+        } else {
+            vscode.window.showInformationMessage('No more undo history');
+        }
+    });
+
+    const redoHighlight = vscode.commands.registerCommand('multiScopeHighlighter.redo', () => {
+        if (historyIndex < historyStack.length - 1) {
+            historyIndex++;
+            restoreState(historyStack[historyIndex]);
+            vscode.window.showInformationMessage('Redo highlight change');
+        } else {
+            vscode.window.showInformationMessage('No more redo history');
+        }
     });
 
     const toggleScope = vscode.commands.registerCommand('multiScopeHighlighter.toggleScope', () => {
@@ -1245,7 +1327,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }, null, context.subscriptions);
 
-    context.subscriptions.push(toggleHighlight, highlightWords, clearAll, toggleScope, saveProfile, loadProfile, deleteProfile, manageHighlights, toggleStyle, setOpacity, toggleContrast, showMenu);
+    context.subscriptions.push(toggleHighlight, highlightWords, clearAll, undoHighlight, redoHighlight, toggleScope, saveProfile, loadProfile, deleteProfile, manageHighlights, toggleStyle, setOpacity, toggleContrast, showMenu);
 }
 
 export function deactivate() {}

@@ -21,7 +21,7 @@
 
 ### Multiple Styles
 
-**Toggle between two visual modes to suit your preference:**
+**Toggle between three visual modes to suit your preference:**
 
 - **Fill:** Solid background color (clean, low noise).
 
@@ -30,6 +30,36 @@
 - **Box:** 2px Outline border with transparent background (minimalist).
 
 ![Box highlight](./images/box.png)
+
+- **Hybrid:** Both fill and box.
+
+![Hybrid](./images/hybrid.png)
+
+**The contrast can be set two ways:**
+
+- **Auto:**
+
+![Auto](./images/auto.png)
+
+- **Black and white:**
+
+![Black and white](./images/bandw.png)
+
+The `auto` mode works better for low `opacity` settings:
+
+- **Opacity: 1%:**
+
+![Opacity 10%](./images/opacity10.png)
+
+- **Opacity: 1%:**
+
+![Opacity 35%](./images/opacity35.png)
+
+- **Opacity: 1%:**
+
+![Opacity 75%](./images/opacity75.png)
+
+
 
 ### ⚙️ Advanced Management
 
@@ -86,7 +116,11 @@
 | **Toggle Single** | `Alt+Q` / `Option+Q` | • With text selected: adds/removes that exact text<br>• Cursor in word (no selection): adds/removes that word<br>• Cursor in existing highlight: removes it |
 | **Toggle Multiple** | `Shift+Alt+Q` / `Shift+Option+Q` | • Selection with highlights: removes ALL highlights within selection<br>• Selection without highlights: adds all words in selection<br>• Cursor in word (no selection): adds that word |
 
-![col-select-multiple](./images/col-sel-multiple.mp4)
+  * Sample showing col select and bulk add, then covert from string to word to eliminate similar matches:
+<video src="./images/col-sel-multiple.mp4" controls title="Column select">
+    Your browser does not support the video tag.
+</video>
+
 
 | Action | Keybinding | Description |
 | :--- | :--- | :--- |
