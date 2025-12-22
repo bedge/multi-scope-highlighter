@@ -119,8 +119,8 @@ The `auto` mode works better for low `opacity` settings:
   * Column select and bulk add, then covert from string to word to eliminate similar matches:
 
 <video controls width="800">
-    <source src="./images/col-sel-multiple.mp4" type="video/mp4">
-    <source src="./images/col-sel-multiple.webm" type="video/webm">
+    <source src="https://github.com/bedge/multi-scope-highlighter/raw/refs/heads/main/images/col-sel-multiple.mp4" type="video/mp4">
+    <source src="https://github.com/bedge/multi-scope-highlighter/raw/refs/heads/main/images/col-sel-multiple.webm" type="video/webm">
     Your browser does not support the video tag.
 </video>
 
