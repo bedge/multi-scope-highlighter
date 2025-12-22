@@ -85,6 +85,13 @@
 | :--- | :--- | :--- |
 | **Toggle Single** | `Alt+Q` / `Option+Q` | • With text selected: adds/removes that exact text<br>• Cursor in word (no selection): adds/removes that word<br>• Cursor in existing highlight: removes it |
 | **Toggle Multiple** | `Shift+Alt+Q` / `Shift+Option+Q` | • Selection with highlights: removes ALL highlights within selection<br>• Selection without highlights: adds all words in selection<br>• Cursor in word (no selection): adds that word |
+
+![col-select-multiple](./images/col-sel-multiple.mp4)
+
+| Action | Keybinding | Description |
+| :--- | :--- | :--- |
+| **Undo** | `Ctrl+Alt+Z` / `Cmd+Option+Z` | Undo the last highlight change (up to 50 actions) |
+| **Redo** | `Ctrl+Alt+Y` / `Cmd+Option+Y` | Redo a previously undone highlight change |
 | **Context Menu** | Right-click | • With selection: "Toggle Selection"<br>• Without selection: "Manage Highlights" |
 | **Clear All** | Via Palette | Removes all highlights at once |
 
@@ -148,6 +155,8 @@ When using `Shift+Alt+Q` to highlight multiple words from a selection, common pu
 - `Highlight: Add Word(s) at Cursor or from Selection`
 - `Highlight: Manage Current Highlights`
 - `Highlight: Clear All`
+- `Highlight: Undo Last Change` - Undo highlight operations (Ctrl+Alt+Z / Cmd+Option+Z)
+- `Highlight: Redo Last Change` - Redo highlight operations (Ctrl+Alt+Y / Cmd+Option+Y)
 - `Highlight: Toggle Scope (Single/All Open)`
 - `Highlight: Toggle Style (Box/Fill/Hybrid)`
 - `Highlight: Set Opacity`
