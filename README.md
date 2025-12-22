@@ -2,6 +2,8 @@
 
 **A focus-assist highlighting tool for VS Code. Highlight multiple words with distinct colors, manage scopes across files, and toggle between visual styles and levels of opacity.**
 
+![Demo](./images/demo-1.gif)
+
 ## ✨ Features
 
 ### Multi-Word & File Highlighting
