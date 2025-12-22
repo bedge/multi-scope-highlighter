@@ -47,15 +47,15 @@
 
 The `auto` mode works better for low `opacity` settings:
 
-- **Opacity: 1%:**
+- **Opacity: 10%:**
 
 ![Opacity 10%](./images/opacity10.png)
 
-- **Opacity: 1%:**
+- **Opacity: 35%:**
 
 ![Opacity 35%](./images/opacity35.png)
 
-- **Opacity: 1%:**
+- **Opacity: 75%:**
 
 ![Opacity 75%](./images/opacity75.png)
 
@@ -116,8 +116,11 @@ The `auto` mode works better for low `opacity` settings:
 | **Toggle Single** | `Alt+Q` / `Option+Q` | • With text selected: adds/removes that exact text<br>• Cursor in word (no selection): adds/removes that word<br>• Cursor in existing highlight: removes it |
 | **Toggle Multiple** | `Shift+Alt+Q` / `Shift+Option+Q` | • Selection with highlights: removes ALL highlights within selection<br>• Selection without highlights: adds all words in selection<br>• Cursor in word (no selection): adds that word |
 
-  * Sample showing col select and bulk add, then covert from string to word to eliminate similar matches:
-<video src="./images/col-sel-multiple.mp4" controls title="Column select">
+  * Column select and bulk add, then covert from string to word to eliminate similar matches:
+
+<video controls width="800">
+    <source src="https://github.com/bedge/multi-scope-highlighter/blob/main/images/col-sel-multiple.mp4" type="video/mp4">
+    <source src="https://github.com/bedge/multi-scope-highlighter/blob/main/images/col-sel-multiple.webm" type="video/webm">
     Your browser does not support the video tag.
 </video>
 
