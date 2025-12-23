@@ -107,6 +107,14 @@
         "title": "Highlight: Delete Profile"
       },
       {
+        "command": "multiScopeHighlighter.switchProfile",
+        "title": "Highlight: Switch Profile"
+      },
+      {
+        "command": "multiScopeHighlighter.newProfile",
+        "title": "Highlight: New Profile"
+      },
+      {
         "command": "multiScopeHighlighter.manageHighlights",
         "title": "Highlight: Manage Current Highlights"
       },
