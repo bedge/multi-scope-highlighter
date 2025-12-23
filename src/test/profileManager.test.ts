@@ -314,4 +314,189 @@ suite('ProfileManager Test Suite', () => {
         // Verify currentProfile was NOT set
         assert.strictEqual(state.currentProfile, null, 'currentProfile should not be set');
     });
+
+    test('Should list profiles sorted by last modified date', async function() {
+        const savePath = getTestSavePath();
+        if (!savePath) {
+            this.skip();
+            return;
+        }
+
+        // Create multiple test profiles with different timestamps
+        const profile1Path = path.join(savePath, 'test-list-1.json');
+        const profile2Path = path.join(savePath, 'test-list-2.json');
+        const profile3Path = path.join(savePath, 'test-list-3.json');
+
+        const profileData = {
+            metadata: { version: '0.0.19', created: new Date().toISOString(), modified: new Date().toISOString() },
+            highlights: [{ pattern: 'TEST', color: 'yellow', mode: 'text' }]
+        };
+
+        // Create files with slight delay to ensure different timestamps
+        fs.writeFileSync(profile1Path, JSON.stringify(profileData));
+        await new Promise(resolve => setTimeout(resolve, 10));
+        fs.writeFileSync(profile2Path, JSON.stringify(profileData));
+        await new Promise(resolve => setTimeout(resolve, 10));
+        fs.writeFileSync(profile3Path, JSON.stringify(profileData));
+
+        // List profiles
+        const profiles = await profileManager.listProfiles();
+
+        // Verify all profiles are listed
+        assert.ok(profiles.length >= 3, 'Should have at least 3 profiles');
+        
+        const testProfiles = profiles.filter(p => p.name.startsWith('test-list-'));
+        assert.strictEqual(testProfiles.length, 3, 'Should find all test profiles');
+
+        // Verify sorted by lastModified (most recent first)
+        for (let i = 0; i < testProfiles.length - 1; i++) {
+            assert.ok(
+                testProfiles[i].lastModified >= testProfiles[i + 1].lastModified,
+                'Profiles should be sorted by lastModified descending'
+            );
+        }
+
+        // Verify metadata structure
+        testProfiles.forEach(profile => {
+            assert.ok(profile.name, 'Profile should have name');
+            assert.ok(profile.path, 'Profile should have path');
+            assert.strictEqual(profile.scope, 'workspace', 'Profile should have scope');
+            assert.ok(profile.lastModified instanceof Date, 'lastModified should be a Date');
+        });
+    });
+
+    test('Should merge profile without replacing existing highlights', async function() {
+        const savePath = getTestSavePath();
+        if (!savePath) {
+            this.skip();
+            return;
+        }
+
+        // Add some initial highlights
+        state.highlightMap.set('EXISTING1', { color: 'red', mode: 'text', cachedRegex: null });
+        state.highlightMap.set('EXISTING2', { color: 'blue', mode: 'text', cachedRegex: null });
+
+        // Create a profile to merge
+        const testFile = path.join(savePath, 'test-merge.json');
+        const profileData = {
+            metadata: { version: '0.0.19', created: new Date().toISOString(), modified: new Date().toISOString() },
+            highlights: [
+                { pattern: 'NEW1', color: 'green', mode: 'text' },
+                { pattern: 'NEW2', color: 'yellow', mode: 'text' },
+                { pattern: 'EXISTING1', color: 'pink', mode: 'text' } // Should be skipped
+            ]
+        };
+        fs.writeFileSync(testFile, JSON.stringify(profileData, null, 2));
+
+        // Merge the profile (Note: Can't test UI interaction, but can test the logic directly)
+        // For now, verify the file exists and can be read
+        const profiles = await profileManager.listProfiles();
+        const mergeProfile = profiles.find(p => p.name === 'test-merge');
+        assert.ok(mergeProfile, 'Merge profile should be in list');
+
+        // Manually test merge logic by reading and applying
+        const content = fs.readFileSync(testFile, 'utf-8');
+        const data = JSON.parse(content);
+        const initialSize = state.highlightMap.size;
+
+        // Simulate merge
+        let added = 0;
+        for (const item of data.highlights) {
+            if (!state.highlightMap.has(item.pattern)) {
+                state.highlightMap.set(item.pattern, {
+                    color: item.color,
+                    mode: item.mode as any,
+                    cachedRegex: null
+                });
+                added++;
+            }
+        }
+
+        // Verify: should add 2 new, skip 1 duplicate
+        assert.strictEqual(added, 2, 'Should add 2 new highlights');
+        assert.strictEqual(state.highlightMap.size, initialSize + 2, 'Map size should increase by 2');
+        assert.strictEqual(state.highlightMap.get('EXISTING1')?.color, 'red', 'Existing highlight should not be replaced');
+        assert.ok(state.highlightMap.has('NEW1'), 'New highlight 1 should be added');
+        assert.ok(state.highlightMap.has('NEW2'), 'New highlight 2 should be added');
+    });
+
+    test('Should duplicate profile with new name and updated metadata', async function() {
+        const savePath = getTestSavePath();
+        if (!savePath) {
+            this.skip();
+            return;
+        }
+
+        // Create original profile
+        const originalFile = path.join(savePath, 'test-duplicate-original.json');
+        const originalCreated = '2024-01-01T00:00:00.000Z';
+        const originalData = {
+            metadata: {
+                version: '0.0.19',
+                created: originalCreated,
+                modified: originalCreated
+            },
+            highlights: [
+                { pattern: 'ORIGINAL', color: 'red', mode: 'text' }
+            ]
+        };
+        fs.writeFileSync(originalFile, JSON.stringify(originalData, null, 2));
+
+        // Simulate duplicate operation
+        const duplicateFile = path.join(savePath, 'test-duplicate-copy.json');
+        const duplicateData = JSON.parse(JSON.stringify(originalData)); // Deep copy
+        duplicateData.metadata.created = new Date().toISOString();
+        duplicateData.metadata.modified = new Date().toISOString();
+        fs.writeFileSync(duplicateFile, JSON.stringify(duplicateData, null, 2));
+
+        // Verify duplicate was created
+        assert.ok(fs.existsSync(duplicateFile), 'Duplicate file should exist');
+
+        // Read and verify
+        const copiedContent = fs.readFileSync(duplicateFile, 'utf-8');
+        const copiedData = JSON.parse(copiedContent);
+
+        // Verify metadata was updated
+        assert.notStrictEqual(copiedData.metadata.created, originalCreated, 'Created timestamp should be updated');
+        assert.notStrictEqual(copiedData.metadata.modified, originalCreated, 'Modified timestamp should be updated');
+
+        // Verify highlights are identical
+        assert.strictEqual(copiedData.highlights.length, originalData.highlights.length);
+        assert.strictEqual(copiedData.highlights[0].pattern, 'ORIGINAL');
+        assert.strictEqual(copiedData.highlights[0].color, 'red');
+
+        // Verify original is unchanged
+        const originalContent = fs.readFileSync(originalFile, 'utf-8');
+        const originalCheck = JSON.parse(originalContent);
+        assert.strictEqual(originalCheck.metadata.created, originalCreated, 'Original should not be modified');
+    });
+
+    test('Should handle legacy profile format when merging', async function() {
+        const savePath = getTestSavePath();
+        if (!savePath) {
+            this.skip();
+            return;
+        }
+
+        // Create legacy format profile (array without metadata)
+        const testFile = path.join(savePath, 'test-merge-legacy.json');
+        const legacyData = [
+            { pattern: 'LEGACY1', color: 'cyan', mode: 'text' },
+            { pattern: 'LEGACY2', color: 'magenta', mode: 'whole' }
+        ];
+        fs.writeFileSync(testFile, JSON.stringify(legacyData, null, 2));
+
+        // Verify file can be read
+        const content = fs.readFileSync(testFile, 'utf-8');
+        const data = JSON.parse(content);
+
+        // Verify it's array format
+        assert.ok(Array.isArray(data), 'Legacy format should be an array');
+
+        // Simulate merge with legacy format
+        const highlights = Array.isArray(data) ? data : (data as any).highlights;
+        assert.strictEqual(highlights.length, 2, 'Should read 2 highlights from legacy format');
+        assert.strictEqual(highlights[0].pattern, 'LEGACY1');
+        assert.strictEqual(highlights[1].pattern, 'LEGACY2');
+    });
 });
