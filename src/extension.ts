@@ -141,7 +141,12 @@ export function activate(context: vscode.ExtensionContext) {
                     detail: 'View all keybindings for this extension'
                 },
                 {
-                    label: '🔥 Clear All',
+                    label: '�️ Disable All',
+                    description: state.highlightsDisabled ? 'Currently disabled' : 'Currently enabled',
+                    detail: 'Temporarily hide/show all highlights without clearing data'
+                },
+                {
+                    label: '�🔥 Clear All',
                     description: '',
                     detail: 'Remove all active highlights immediately'
                 }
@@ -190,6 +195,10 @@ export function activate(context: vscode.ExtensionContext) {
                 quickPick.dispose();
                 await vscode.commands.executeCommand('multiScopeHighlighter.showKeybindings');
                 vscode.commands.executeCommand('multiScopeHighlighter.showMenu');
+
+            } else if (selected.label.includes('Disable All')) {
+                vscode.commands.executeCommand('multiScopeHighlighter.toggleDisableAll');
+                quickPick.items = generateItems();
 
             } else if (selected.label.includes('Clear All')) {
                 vscode.commands.executeCommand('multiScopeHighlighter.clearAll');
@@ -691,12 +700,16 @@ export function activate(context: vscode.ExtensionContext) {
         await config.update('textContrast', next, vscode.ConfigurationTarget.Global);
     });
 
+    const toggleDisableAll = vscode.commands.registerCommand('multiScopeHighlighter.toggleDisableAll', () => {
+        highlightManager.toggleDisableAll();
+    });
+
     const saveProfile = vscode.commands.registerCommand('multiScopeHighlighter.saveProfile', async () => {
         await profileManager.saveProfile();
     });
 
-    const loadProfile = vscode.commands.registerCommand('multiScopeHighlighter.loadProfile', async () => {
-        await profileManager.loadProfile();
+    const activateProfile = vscode.commands.registerCommand('multiScopeHighlighter.loadProfile', async () => {
+        await profileManager.activateProfile();
     });
 
     const deleteProfile = vscode.commands.registerCommand('multiScopeHighlighter.deleteProfile', async () => {
@@ -995,7 +1008,7 @@ export function activate(context: vscode.ExtensionContext) {
         redoHighlight,
         toggleScope,
         saveProfile,
-        loadProfile,
+        activateProfile,
         deleteProfile,
         switchProfile,
         newProfile,
@@ -1006,6 +1019,7 @@ export function activate(context: vscode.ExtensionContext) {
         toggleStyle,
         setOpacity,
         toggleContrast,
+        toggleDisableAll,
         showMenu,
         showMenuWithModifiers,
         showProfileMenu,

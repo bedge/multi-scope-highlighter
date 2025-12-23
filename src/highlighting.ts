@@ -78,6 +78,14 @@ export class HighlightManager {
      * Handles large file optimization by only scanning visible ranges
      */
     applyDecorations(editor: vscode.TextEditor): void {
+        // If highlights are globally disabled, clear all decorations and return
+        if (this.state.highlightsDisabled) {
+            this.state.decorationMap.forEach((decorationType, pattern) => {
+                editor.setDecorations(decorationType, []);
+            });
+            return;
+        }
+
         const config = this.getConfiguration();
 
         // Large File Optimization:
@@ -164,6 +172,12 @@ export class HighlightManager {
         const config = this.getConfiguration();
         const colorKey = details?.color || this.getNextColorKey();
         const mode = details?.mode || 'text';
+        
+        // Determine source: use provided source, or default to active profile (or manual if none)
+        const source = details?.source || {
+            type: this.state.activeProfileName ? 'profile' : 'manual',
+            profileName: this.state.activeProfileName
+        } as any;
 
         // Cache the Regex immediately if needed
         const cachedRegex = createHighlightRegex(pattern, mode);
@@ -208,7 +222,7 @@ export class HighlightManager {
         });
 
         this.state.decorationMap.set(pattern, decorationType);
-        this.state.highlightMap.set(pattern, { color: colorKey, mode, cachedRegex });
+        this.state.highlightMap.set(pattern, { color: colorKey, mode, cachedRegex, source });
         this.statusBarUpdateCallback();
     }
 
@@ -249,5 +263,16 @@ export class HighlightManager {
             this.addHighlight(pattern, details);
         });
         this.triggerUpdate();
+    }
+
+    /**
+     * Toggle all highlights on/off (visibility only, preserves data)
+     */
+    toggleDisableAll(): void {
+        this.state.highlightsDisabled = !this.state.highlightsDisabled;
+        this.triggerUpdate();
+        
+        const status = this.state.highlightsDisabled ? 'disabled' : 'enabled';
+        vscode.window.showInformationMessage(`All highlights ${status}`);
     }
 }

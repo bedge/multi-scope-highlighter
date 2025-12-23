@@ -13,6 +13,7 @@ interface SavedProfileItem {
     pattern?: string;   // Current format
     color: string;
     mode?: HighlightMode;
+    source?: { type: 'manual' | 'profile'; profileName?: string };  // NEW: Source tracking
 }
 
 /**
@@ -105,7 +106,8 @@ export class ProfileManager {
             highlights: Array.from(this.state.highlightMap.entries()).map(([pattern, details]) => ({
                 pattern,
                 color: details.color,
-                mode: details.mode
+                mode: details.mode,
+                source: details.source  // NEW: Include source
             }))
         };
 
@@ -125,9 +127,9 @@ export class ProfileManager {
     }
 
     /**
-     * Load a profile from file
+     * Activate a profile from file (load and set as active for editing)
      */
-    async loadProfile(selectedFile?: string): Promise<void> {
+    async activateProfile(selectedFile?: string): Promise<void> {
         const savePath = this.getSavePath();
         if (!savePath) {
             return;
@@ -144,7 +146,7 @@ export class ProfileManager {
         }
 
         const selected = selectedFile || await vscode.window.showQuickPick(files, {
-            placeHolder: 'Select a profile to load'
+            placeHolder: 'Select a profile to activate'
         });
 
         if (!selected) {
@@ -172,16 +174,25 @@ export class ProfileManager {
                 throw new Error('Invalid profile format');
             }
 
+            const profileName = selected.replace('.json', '');
             this.clearAllCallback();
+            
+            // Set this as the active profile BEFORE adding highlights
+            this.state.activeProfileName = profileName;
 
             highlights.forEach(item => {
                 const pattern = item.pattern || item.word || '';
                 if (pattern) {
-                    this.addHighlightCallback(pattern, { color: item.color, mode: item.mode || 'text' });
+                    // Load with source from file, or assign profile source for legacy files
+                    const source = item.source || { type: 'profile', profileName };
+                    this.addHighlightCallback(pattern, { 
+                        color: item.color, 
+                        mode: item.mode || 'text',
+                        source 
+                    });
                 }
             });
 
-            const profileName = selected.replace('.json', '');
             const stats = fs.statSync(filePath);
             
             // Update state with profile metadata
@@ -195,7 +206,7 @@ export class ProfileManager {
 
             this.triggerUpdateCallback();
             this.statusBarUpdateCallback();
-            vscode.window.showInformationMessage(`Profile '${profileName}' loaded.`);
+            vscode.window.showInformationMessage(`Profile '${profileName}' activated.`);
         } catch (e) {
             vscode.window.showErrorMessage(`Failed to parse profile: ${e}`);
         }
@@ -309,7 +320,7 @@ export class ProfileManager {
         }
 
         // Load the selected profile
-        await this.loadProfile(selected.profile.name + '.json');
+        await this.activateProfile(selected.profile.name + '.json');
         vscode.window.showInformationMessage(`Loaded profile: ${selected.profile.name}`);
     }
 

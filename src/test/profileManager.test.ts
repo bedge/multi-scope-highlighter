@@ -157,7 +157,7 @@ suite('ProfileManager Test Suite', () => {
         fs.writeFileSync(testFile, JSON.stringify(profileData, null, 2));
 
         // Load profile
-        await profileManager.loadProfile('test-profile-load.json');
+        await profileManager.activateProfile('test-profile-load.json');
 
         // Verify status bar update was called
         assert.strictEqual(statusBarUpdateCalled, true, 'Status bar should update after load');
@@ -188,7 +188,7 @@ suite('ProfileManager Test Suite', () => {
         fs.writeFileSync(testFile, JSON.stringify(legacyData, null, 2));
 
         // Load profile
-        await profileManager.loadProfile('test-profile-legacy.json');
+        await profileManager.activateProfile('test-profile-legacy.json');
 
         // Verify status bar update was called
         assert.strictEqual(statusBarUpdateCalled, true, 'Status bar should update after load');
@@ -263,7 +263,7 @@ suite('ProfileManager Test Suite', () => {
         fs.writeFileSync(testFile, JSON.stringify(profileData, null, 2));
 
         // Load the profile
-        await profileManager.loadProfile('test-profile-delete.json');
+        await profileManager.activateProfile('test-profile-delete.json');
 
         // Verify profile was loaded
         assert.ok(state.currentProfile, 'Profile should be loaded');

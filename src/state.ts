@@ -22,6 +22,8 @@ export class HighlightState {
     colorIndex: number = 0; // Legacy - kept for backward compatibility
     currentProfile: ProfileMetadata | null = null; // New metadata tracking
     currentProfileName?: string;
+    activeProfileName?: string; // The profile being actively edited
+    highlightsDisabled: boolean = false; // Global toggle to hide all highlights
 
     // Performance optimization: debounce timer
     updateTimeout?: NodeJS.Timeout;

@@ -147,6 +147,10 @@
         "title": "Highlight: Toggle Text Contrast"
       },
       {
+        "command": "multiScopeHighlighter.toggleDisableAll",
+        "title": "Highlight: Disable/Enable All (Toggle Visibility)"
+      },
+      {
         "command": "multiScopeHighlighter.showKeybindings",
         "title": "Highlight: Show Keyboard Shortcuts"
       }

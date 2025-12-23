@@ -8,12 +8,20 @@ import { HighlightMode } from './utils';
 /** Visual style mode for highlights */
 export type StyleMode = 'fill' | 'box' | 'hybrid';
 
+/** Track the origin of a highlight */
+export interface HighlightSource {
+    type: 'manual' | 'profile';
+    profileName?: string;  // Set when type === 'profile'
+}
+
 /** Details about a single highlight pattern */
 export interface HighlightDetails {
     color: string;
     mode: HighlightMode;
     /** Optimization: Cache the regex so we don't rebuild it on every keystroke */
     cachedRegex?: RegExp | null;
+    /** Track where this highlight came from (manual edit or profile) */
+    source?: HighlightSource;
 }
 
 /** State snapshot for undo/redo functionality */
