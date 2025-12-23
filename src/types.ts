@@ -1,0 +1,37 @@
+import * as vscode from 'vscode';
+import { HighlightMode } from './utils';
+
+/**
+ * Shared type definitions for the multi-scope-highlighter extension
+ */
+
+/** Visual style mode for highlights */
+export type StyleMode = 'fill' | 'box' | 'hybrid';
+
+/** Details about a single highlight pattern */
+export interface HighlightDetails {
+    color: string;
+    mode: HighlightMode;
+    /** Optimization: Cache the regex so we don't rebuild it on every keystroke */
+    cachedRegex?: RegExp | null;
+}
+
+/** State snapshot for undo/redo functionality */
+export interface HistoryState {
+    highlightMap: Map<string, HighlightDetails>;
+    colorIndex: number;
+}
+
+/** Metadata about a saved profile */
+export interface ProfileMetadata {
+    name: string;
+    path: string;
+    scope: 'workspace' | 'global';
+    lastModified: Date;
+}
+
+/** Decoration map type for managing VS Code decorations */
+export type DecorationMap = Map<string, vscode.TextEditorDecorationType>;
+
+/** Highlight map type for tracking highlight configurations */
+export type HighlightMap = Map<string, HighlightDetails>;
