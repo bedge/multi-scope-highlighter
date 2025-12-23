@@ -71,6 +71,10 @@
         "title": "Highlight: Open Menu"
       },
       {
+        "command": "multiScopeHighlighter.showProfileMenu",
+        "title": "Highlight: Open Profile Menu"
+      },
+      {
         "command": "multiScopeHighlighter.toggleHighlight",
         "title": "Highlight: Toggle Selection"
       },
@@ -147,6 +151,11 @@
         "key": "shift+alt+q",
         "mac": "shift+option+q",
         "when": "editorTextFocus"
+      },
+      {
+        "command": "multiScopeHighlighter.showProfileMenu",
+        "key": "ctrl+alt+q",
+        "mac": "cmd+alt+q"
       },
       {
         "command": "multiScopeHighlighter.undo",

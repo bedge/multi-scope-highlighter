@@ -13,7 +13,7 @@ export class StatusBarManager {
             100
         );
         this.statusBar.command = 'multiScopeHighlighter.showMenu';
-        this.statusBar.tooltip = "Multi-Scope Highlighter Main Menu";
+        this.statusBar.tooltip = "Multi-Scope Highlighter\n\nClick: Main Menu\nCtrl+Alt+Q: Profile Menu";
         this.update();
     }
 
