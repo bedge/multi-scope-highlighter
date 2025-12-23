@@ -91,13 +91,7 @@ The `auto` mode works better for low `opacity` settings:
 
 - **All controlled from a single widget**
 
-![Menu widger](./images/control-icon.png)
-
-- **Dedicated 2nd level menu**
-
-![Menu widget](./images/menu-icons.png)
-
-
+![Menu widget](./images/control-icon.png)
 
 | Setting | Description | Default |
 | :--- | :--- | :--- |
@@ -127,6 +121,7 @@ The `auto` mode works better for low `opacity` settings:
 | :--- | :--- | :--- |
 | **Undo** | `Ctrl+Alt+Z` / `Cmd+Option+Z` | Undo the last highlight change (up to 50 actions) |
 | **Redo** | `Ctrl+Alt+Y` / `Cmd+Option+Y` | Redo a previously undone highlight change |
+| **Profile Menu** | `Ctrl+Alt+Q` / `Cmd+Option+Q` | Open profile management menu (Save, Load, Switch, Merge, etc.) |
 | **Context Menu** | Right-click | • With selection: "Toggle Selection"<br>• Without selection: "Manage Highlights" |
 | **Clear All** | Via Palette | Removes all highlights at once |
 
@@ -185,6 +180,8 @@ When using `Shift+Alt+Q` to highlight multiple words from a selection, common pu
 
 **You can access these via the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):**
 
+### Highlighting Commands
+
 - `Highlight: Open Menu`
 - `Highlight: Toggle Selection`
 - `Highlight: Add Word(s) at Cursor or from Selection`
@@ -196,11 +193,53 @@ When using `Shift+Alt+Q` to highlight multiple words from a selection, common pu
 - `Highlight: Toggle Style (Box/Fill/Hybrid)`
 - `Highlight: Set Opacity`
 - `Highlight: Toggle Text Contrast`
-- `Highlight: Save Profile`
-- `Highlight: Load Profile`
-- `Highlight: Delete Profile`
 
-## 🔒 Storage & Privacy
+* Most of these are also available from the main menu:
 
-- **Profiles:** Saved as JSON files in a `.vscode/highlights/` directory within your current workspace. This makes it easy to share highlight profiles with your team by committing them to version control.
-- **Runtime:** Highlights are temporary and exist only in memory unless explicitly saved to a profile.
+![Profile menu](./images/main-menu.png)
+
+### Profile Commands
+
+- `Highlight: Profile Menu` - Quick access to all profile operations (Ctrl+Alt+Q / Cmd+Option+Q)
+- `Highlight: Save Profile` - Save current highlights to a named profile
+- `Highlight: Load Profile` - Load highlights from a saved profile
+- `Highlight: Switch Profile` - Quick switch between profiles with last modified timestamps
+- `Highlight: New Profile` - Clear all highlights and start a fresh profile
+- `Highlight: Merge Profile` - Add highlights from another profile without replacing current ones
+- `Highlight: Duplicate Profile` - Create a copy of an existing profile with a new name
+- `Highlight: Load Template` - Start from built-in templates (TODO Markers, Error & Debugging, Security & Performance)
+- `Highlight: Delete Profile` - Remove a saved profile
+
+* Also visible on the `Highlight: Profile Menu`:
+
+![Profile menu](./images/profile-menu.png)
+
+## � Profile Management
+
+**Profiles let you save, switch, and reuse highlight configurations for different tasks.**
+
+### Quick Access
+
+Press `Ctrl+Alt+Q` (or `Cmd+Option+Q` on Mac) to open the **Profile Menu** with all profile operations.
+
+### Profile Features
+
+- **Save Profile:** Store your current highlights with a custom name
+- **Load Profile:** Replace current highlights with a saved profile
+- **Switch Profile:** Quick picker showing all profiles with last modified timestamps
+- **New Profile:** Clear all highlights and start fresh with a confirmation prompt
+- **Merge Profile:** Add highlights from another profile to your current ones (non-destructive)
+- **Duplicate Profile:** Create a copy of a profile with a new name for experimentation
+- **Load Template:** Start from built-in templates:
+  - **TODO Markers:** Common task annotations (TODO, FIXME, NOTE, HACK, etc.)
+  - **Error & Debugging:** Error keywords, log levels, and debugging patterns
+  - **Security & Performance:** Security-sensitive terms and performance-critical patterns
+  - Choose to **Merge** (add to current) or **Replace** (clear all first)
+
+### Storage & Privacy
+
+- **Location:** Profiles are saved as JSON files in `.vscode/highlights/` within your workspace
+- **Sharing:** Commit profiles to version control to share with your team
+- **Metadata:** Each profile tracks creation date, last modified timestamp, scope, and name
+- **Runtime:** Active highlights exist only in memory unless saved to a profile
+- **Backward Compatible:** Supports legacy profile format for seamless migration
