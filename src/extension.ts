@@ -39,7 +39,8 @@ export function activate(context: vscode.ExtensionContext) {
         state,
         (pattern, details) => highlightManager.addHighlight(pattern, details),
         () => highlightManager.clearAll(),
-        () => highlightManager.triggerUpdate()
+        () => highlightManager.triggerUpdate(),
+        () => statusBar.update()
     );
 
     // Register status bar for disposal

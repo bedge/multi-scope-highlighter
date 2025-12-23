@@ -3,6 +3,7 @@ import {
     StyleMode,
     HighlightDetails,
     HistoryState,
+    ProfileMetadata,
     DecorationMap,
     HighlightMap
 } from './types';
@@ -18,7 +19,8 @@ export class HighlightState {
 
     isGlobalScope: boolean = false;
     styleMode: StyleMode = 'hybrid';
-    colorIndex: number = 0;
+    colorIndex: number = 0; // Legacy - kept for backward compatibility
+    currentProfile: ProfileMetadata | null = null; // New metadata tracking
     currentProfileName?: string;
 
     // Performance optimization: debounce timer

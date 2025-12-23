@@ -23,7 +23,10 @@ export class StatusBarManager {
     update(): void {
         const count = this.state.highlightMap.size;
         const countText = count > 0 ? ` ${count}` : '';
-        this.statusBar.text = `🌈${countText}`;
+        const profileText = this.state.currentProfile 
+            ? ` (${this.state.currentProfile.name})` 
+            : '';
+        this.statusBar.text = `🌈${countText}${profileText}`;
         this.statusBar.show();
     }
 
