@@ -204,7 +204,7 @@ export class ProfileManager {
     /**
      * Delete a profile file
      */
-    async deleteProfile(): Promise<void> {
+    async deleteProfile(fileName?: string): Promise<void> {
         const savePath = this.getSavePath();
         if (!savePath) {
             return;
@@ -215,9 +215,14 @@ export class ProfileManager {
             return;
         }
 
-        const selected = await vscode.window.showQuickPick(files, {
-            placeHolder: 'Select a profile to DELETE'
-        });
+        let selected: string | undefined = fileName;
+        
+        // If no fileName provided, show QuickPick
+        if (!selected) {
+            selected = await vscode.window.showQuickPick(files, {
+                placeHolder: 'Select a profile to DELETE'
+            });
+        }
 
         if (!selected) {
             return;
