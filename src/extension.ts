@@ -77,6 +77,14 @@ export function activate(context: vscode.ExtensionContext) {
 
     // --- Commands ---
 
+    const showMenuWithModifiers = vscode.commands.registerCommand('multiScopeHighlighter.showMenuWithModifiers', async () => {
+        // Check if Ctrl (or Cmd on Mac) was held during click
+        // Note: VS Code doesn't provide modifier info directly, so we check activeTextEditor
+        // as a workaround. For now, we'll use a simple toggle approach.
+        // User can also access via Command Palette
+        await vscode.commands.executeCommand('multiScopeHighlighter.showMenu');
+    });
+
     const showMenu = vscode.commands.registerCommand('multiScopeHighlighter.showMenu', async () => {
         const quickPick = vscode.window.createQuickPick();
         quickPick.title = 'Multi-Scope Highlighter Menu';
@@ -123,24 +131,9 @@ export function activate(context: vscode.ExtensionContext) {
                     detail: 'Toggle between syntax highlighting and high-contrast text'
                 },
                 {
-                    label: '💾 Save Profile',
-                    description: state.currentProfileName ? `(${state.currentProfileName})` : '',
-                    detail: 'Save current highlights to a JSON file'
-                },
-                {
-                    label: '📂 Load Profile',
-                    description: '',
-                    detail: 'Load highlights from a saved JSON file'
-                },
-                {
-                    label: '🔄 Switch Profile',
-                    description: '',
-                    detail: 'Quick switch to a different saved profile'
-                },
-                {
-                    label: '✨ New Profile',
-                    description: '',
-                    detail: 'Clear all highlights and start a new profile'
+                    label: '📁 Profiles',
+                    description: state.currentProfileName ? `Current: ${state.currentProfileName}` : 'No profile loaded',
+                    detail: 'Manage saved highlight profiles'
                 },
                 {
                     label: '⌨️ Keyboard Shortcuts',
@@ -189,17 +182,9 @@ export function activate(context: vscode.ExtensionContext) {
                 quickPick.dispose();
                 await vscode.commands.executeCommand('multiScopeHighlighter.saveProfile');
 
-            } else if (selected.label.includes('Load Profile')) {
+            } else if (selected.label.includes('Profiles')) {
                 quickPick.dispose();
-                await vscode.commands.executeCommand('multiScopeHighlighter.loadProfile');
-
-            } else if (selected.label.includes('Switch Profile')) {
-                quickPick.dispose();
-                await vscode.commands.executeCommand('multiScopeHighlighter.switchProfile');
-
-            } else if (selected.label.includes('New Profile')) {
-                quickPick.dispose();
-                await vscode.commands.executeCommand('multiScopeHighlighter.newProfile');
+                await vscode.commands.executeCommand('multiScopeHighlighter.showProfileMenu');
 
             } else if (selected.label.includes('Keyboard Shortcuts')) {
                 quickPick.dispose();
@@ -218,6 +203,72 @@ export function activate(context: vscode.ExtensionContext) {
             }
         });
         quickPick.onDidHide(() => disposable.dispose());
+
+        quickPick.show();
+    });
+
+    const showProfileMenu = vscode.commands.registerCommand('multiScopeHighlighter.showProfileMenu', async () => {
+        const quickPick = vscode.window.createQuickPick();
+        quickPick.title = 'Profile Management';
+        quickPick.placeholder = 'Select a profile action (ESC to close)';
+
+        const generateItems = () => [
+            {
+                label: '💾 Save Profile',
+                description: state.currentProfileName ? `(${state.currentProfileName})` : '',
+                detail: 'Save current highlights to a JSON file'
+            },
+            {
+                label: '📂 Load Profile',
+                description: '',
+                detail: 'Load highlights from a saved JSON file'
+            },
+            {
+                label: '🔄 Switch Profile',
+                description: '',
+                detail: 'Quick switch to a different saved profile'
+            },
+            {
+                label: '✨ New Profile',
+                description: '',
+                detail: 'Clear all highlights and start a new profile'
+            },
+            {
+                label: '🗑️ Delete Profile',
+                description: '',
+                detail: 'Delete a saved profile file'
+            }
+        ];
+
+        quickPick.items = generateItems();
+
+        quickPick.onDidAccept(async () => {
+            const selected = quickPick.selectedItems[0];
+            if (!selected) {
+                return;
+            }
+
+            if (selected.label.includes('Save Profile')) {
+                quickPick.dispose();
+                await vscode.commands.executeCommand('multiScopeHighlighter.saveProfile');
+
+            } else if (selected.label.includes('Load Profile')) {
+                quickPick.dispose();
+                await vscode.commands.executeCommand('multiScopeHighlighter.loadProfile');
+
+            } else if (selected.label.includes('Switch Profile')) {
+                quickPick.dispose();
+                await vscode.commands.executeCommand('multiScopeHighlighter.switchProfile');
+
+            } else if (selected.label.includes('New Profile')) {
+                quickPick.dispose();
+                await vscode.commands.executeCommand('multiScopeHighlighter.newProfile');
+
+            } else if (selected.label.includes('Delete Profile')) {
+                quickPick.dispose();
+                await vscode.commands.executeCommand('multiScopeHighlighter.deleteProfile');
+            }
+        });
 
         quickPick.show();
     });
@@ -914,6 +965,8 @@ export function activate(context: vscode.ExtensionContext) {
         setOpacity,
         toggleContrast,
         showMenu,
+        showMenuWithModifiers,
+        showProfileMenu,
         showKeybindings
     );
 }
