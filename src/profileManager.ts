@@ -333,4 +333,229 @@ export class ProfileManager {
         
         vscode.window.showInformationMessage('New profile started. Add highlights and save when ready.');
     }
+
+    /**
+     * Merge highlights from another profile into the current highlightMap
+     * Does not replace existing highlights - only adds new ones
+     */
+    async mergeProfile(): Promise<void> {
+        const profiles = await this.listProfiles();
+        
+        if (profiles.length === 0) {
+            vscode.window.showInformationMessage('No saved profiles found to merge.');
+            return;
+        }
+
+        // Format profile list for QuickPick
+        const items = profiles.map(profile => ({
+            label: profile.name,
+            description: profile.lastModified.toLocaleString(),
+            profile
+        }));
+
+        const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: 'Select a profile to merge into current highlights'
+        });
+
+        if (!selected) {
+            return;
+        }
+
+        try {
+            const filePath = selected.profile.path;
+            const content = fs.readFileSync(filePath, 'utf-8');
+            const data = JSON.parse(content);
+            
+            // Handle both new format (with metadata) and legacy format (array)
+            const highlights = Array.isArray(data) ? data : data.highlights;
+            
+            if (!highlights || highlights.length === 0) {
+                vscode.window.showInformationMessage('Profile is empty, nothing to merge.');
+                return;
+            }
+
+            let addedCount = 0;
+            let skippedCount = 0;
+
+            // Add highlights that don't already exist
+            for (const item of highlights) {
+                if (!this.state.highlightMap.has(item.pattern)) {
+                    this.addHighlightCallback(item.pattern, {
+                        color: item.color,
+                        mode: item.mode || 'text'
+                    });
+                    addedCount++;
+                } else {
+                    skippedCount++;
+                }
+            }
+
+            this.triggerUpdateCallback();
+
+            const message = skippedCount > 0
+                ? `Merged ${addedCount} highlight(s) from "${selected.profile.name}" (skipped ${skippedCount} duplicate(s))`
+                : `Merged ${addedCount} highlight(s) from "${selected.profile.name}"`;
+            
+            vscode.window.showInformationMessage(message);
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to merge profile: ${error}`);
+        }
+    }
+
+    /**
+     * Duplicate an existing profile with a new name
+     */
+    async duplicateProfile(): Promise<void> {
+        const profiles = await this.listProfiles();
+        
+        if (profiles.length === 0) {
+            vscode.window.showInformationMessage('No saved profiles found to duplicate.');
+            return;
+        }
+
+        // Select profile to duplicate
+        const items = profiles.map(profile => ({
+            label: profile.name,
+            description: profile.lastModified.toLocaleString(),
+            profile
+        }));
+
+        const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: 'Select a profile to duplicate'
+        });
+
+        if (!selected) {
+            return;
+        }
+
+        // Get new name
+        const newName = await vscode.window.showInputBox({
+            prompt: 'Enter name for the duplicated profile',
+            value: `${selected.profile.name}-copy`,
+            validateInput: (value) => {
+                if (!value || value.trim().length === 0) {
+                    return 'Profile name cannot be empty';
+                }
+                if (value.includes('/') || value.includes('\\')) {
+                    return 'Profile name cannot contain / or \\ characters';
+                }
+                return null;
+            }
+        });
+
+        if (!newName) {
+            return;
+        }
+
+        try {
+            const savePath = this.getSavePath();
+            if (!savePath) {
+                return;
+            }
+
+            const sourcePath = selected.profile.path;
+            const destPath = path.join(savePath, `${newName}.json`);
+
+            // Read source profile
+            const content = fs.readFileSync(sourcePath, 'utf-8');
+            const data = JSON.parse(content);
+
+            // Update metadata if present
+            if (data.metadata) {
+                data.metadata.created = new Date().toISOString();
+                data.metadata.modified = new Date().toISOString();
+            }
+
+            // Write to new file
+            fs.writeFileSync(destPath, JSON.stringify(data, null, 2));
+            
+            vscode.window.showInformationMessage(`Profile duplicated as "${newName}"`);
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to duplicate profile: ${error}`);
+        }
+    }
+
+    /**
+     * Load a built-in template profile
+     */
+    async loadTemplate(): Promise<void> {
+        const templates = [
+            {
+                label: '📝 TODO Markers',
+                description: 'Common task annotations',
+                highlights: [
+                    { pattern: 'TODO', color: 'yellow', mode: 'whole' },
+                    { pattern: 'FIXME', color: 'red', mode: 'whole' },
+                    { pattern: 'HACK', color: 'orange', mode: 'whole' },
+                    { pattern: 'NOTE', color: 'blue', mode: 'whole' },
+                    { pattern: 'XXX', color: 'pink', mode: 'whole' }
+                ]
+            },
+            {
+                label: '🐛 Error & Debugging',
+                description: 'Error handling and debug statements',
+                highlights: [
+                    { pattern: 'console.log', color: 'cyan', mode: 'text' },
+                    { pattern: 'console.error', color: 'red', mode: 'text' },
+                    { pattern: 'console.warn', color: 'orange', mode: 'text' },
+                    { pattern: 'debugger', color: 'pink', mode: 'whole' },
+                    { pattern: 'ERROR', color: 'red', mode: 'whole' },
+                    { pattern: 'WARNING', color: 'orange', mode: 'whole' }
+                ]
+            },
+            {
+                label: '⚠️ Security & Performance',
+                description: 'Potential issues to review',
+                highlights: [
+                    { pattern: 'SECURITY', color: 'red', mode: 'whole' },
+                    { pattern: 'PERFORMANCE', color: 'yellow', mode: 'whole' },
+                    { pattern: 'DEPRECATED', color: 'orange', mode: 'whole' },
+                    { pattern: 'REVIEW', color: 'purple', mode: 'whole' }
+                ]
+            }
+        ];
+
+        const selected = await vscode.window.showQuickPick(templates, {
+            placeHolder: 'Select a template to load'
+        });
+
+        if (!selected) {
+            return;
+        }
+
+        // Ask if they want to replace or merge
+        const action = await vscode.window.showQuickPick(
+            [
+                { label: '➕ Merge', description: 'Add to current highlights', value: 'merge' },
+                { label: '🔄 Replace', description: 'Clear all and use only template', value: 'replace' }
+            ],
+            { placeHolder: 'How do you want to load this template?' }
+        );
+
+        if (!action) {
+            return;
+        }
+
+        // Clear if replacing
+        if (action.value === 'replace') {
+            this.clearAllCallback();
+        }
+
+        // Add template highlights
+        let addedCount = 0;
+        for (const item of selected.highlights) {
+            if (!this.state.highlightMap.has(item.pattern)) {
+                this.addHighlightCallback(item.pattern, {
+                    color: item.color,
+                    mode: item.mode as HighlightMode
+                });
+                addedCount++;
+            }
+        }
+
+        this.triggerUpdateCallback();
+        
+        const actionText = action.value === 'replace' ? 'Loaded' : 'Merged';
+        vscode.window.showInformationMessage(`${actionText} template: ${selected.label.substring(2)} (${addedCount} highlight(s))`);
+    }
 }

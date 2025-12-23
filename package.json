@@ -119,6 +119,18 @@
         "title": "Highlight: New Profile"
       },
       {
+        "command": "multiScopeHighlighter.mergeProfile",
+        "title": "Highlight: Merge Profile"
+      },
+      {
+        "command": "multiScopeHighlighter.duplicateProfile",
+        "title": "Highlight: Duplicate Profile"
+      },
+      {
+        "command": "multiScopeHighlighter.loadTemplate",
+        "title": "Highlight: Load Template"
+      },
+      {
         "command": "multiScopeHighlighter.manageHighlights",
         "title": "Highlight: Manage Current Highlights"
       },
