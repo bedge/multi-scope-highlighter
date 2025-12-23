@@ -78,12 +78,22 @@ The `auto` mode works better for low `opacity` settings:
 ![Context matching](./images/context-matching.png)
 
 
-### Profile Persistence
+### Profile Persistence & Context Menu Editing
 
 **Stop re-highlighting the same logs every day.**
 
 - **Save Profile:** Save your current set of highlights to a named JSON file in your workspace.
 - **Load Profile:** Instantly restore a debugging context.
+- **Active Profile:** Track which profile you're currently editing - all manual changes update the active profile.
+
+**Right-click on any highlighted text to instantly edit it:**
+
+- **Edit Pattern:** Change the text pattern while preserving color and mode
+- **Change Color:** Pick a new color from the palette
+- **Change Mode:** Toggle between Text, Whole Word, and Regex matching
+- **Profile Protection:** Highlights from non-active profiles require confirmation to prevent accidental changes
+
+**Smart Toggle Protection:** Alt+Q respects profile ownership - toggle active profile highlights immediately, but non-active profiles show a warning with the profile name.
 
 ## 🛠️ Configuration
 
@@ -187,12 +197,15 @@ When using `Shift+Alt+Q` to highlight multiple words from a selection, common pu
 - `Highlight: Add Word(s) at Cursor or from Selection`
 - `Highlight: Manage Current Highlights`
 - `Highlight: Clear All`
+- `Highlight: Disable/Enable All (Toggle Visibility)` - Temporarily hide all highlights without clearing data
 - `Highlight: Undo Last Change` - Undo highlight operations (Ctrl+Alt+Z / Cmd+Option+Z)
 - `Highlight: Redo Last Change` - Redo highlight operations (Ctrl+Alt+Y / Cmd+Option+Y)
 - `Highlight: Toggle Scope (Single/All Open)`
 - `Highlight: Toggle Style (Box/Fill/Hybrid)`
 - `Highlight: Set Opacity`
 - `Highlight: Toggle Text Contrast`
+- `Highlight: Remove at Cursor` - Context menu: Remove highlight under cursor (with profile protection)
+- `Highlight: Edit at Cursor` - Context menu: Edit pattern, color, or mode of highlight under cursor
 
 * Most of these are also available from the main menu:
 

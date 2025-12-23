@@ -62,6 +62,16 @@
           "command": "multiScopeHighlighter.manageHighlights",
           "group": "navigation",
           "when": "!editorHasSelection"
+        },
+        {
+          "command": "multiScopeHighlighter.removeHighlightAtCursor",
+          "group": "multiScopeHighlighter@1",
+          "when": "editorTextFocus && multiScopeHighlighter.hasHighlightAtCursor"
+        },
+        {
+          "command": "multiScopeHighlighter.editHighlightAtCursor",
+          "group": "multiScopeHighlighter@2",
+          "when": "editorTextFocus && multiScopeHighlighter.hasHighlightAtCursor"
         }
       ]
     },
@@ -149,6 +159,14 @@
       {
         "command": "multiScopeHighlighter.toggleDisableAll",
         "title": "Highlight: Disable/Enable All (Toggle Visibility)"
+      },
+      {
+        "command": "multiScopeHighlighter.removeHighlightAtCursor",
+        "title": "Highlight: Remove at Cursor"
+      },
+      {
+        "command": "multiScopeHighlighter.editHighlightAtCursor",
+        "title": "Highlight: Edit at Cursor"
       },
       {
         "command": "multiScopeHighlighter.showKeybindings",

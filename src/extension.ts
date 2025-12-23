@@ -4,6 +4,7 @@ import { HighlightState } from './state';
 import { HighlightManager } from './highlighting';
 import { ProfileManager } from './profileManager';
 import { StatusBarManager } from './statusBar';
+import { HighlightDetails } from './types';
 import {
     HighlightMode,
     PALETTE,
@@ -12,8 +13,15 @@ import {
     getModeLabel as getModeLabelUtil,
     getNextMode,
     parseNoiseWords,
-    isNoiseWord as isNoiseWordUtil
+    isNoiseWord as isNoiseWordUtil,
+    createHighlightRegex
 } from './utils';
+
+// --- Global Context: Track highlight under cursor ---
+let cursorHighlightContext: {
+    pattern: string;
+    details: HighlightDetails;
+} | null = null;
 
 // --- Helper: Generate SVG Icons ---
 function getIconUri(color: string, shape: 'rect' | 'circle' = 'rect'): vscode.Uri {
@@ -25,6 +33,81 @@ function getIconUri(color: string, shape: 'rect' | 'circle' = 'rect'): vscode.Ur
     }
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">${svgBody}</svg>`;
     return vscode.Uri.parse(`data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`);
+}
+
+// --- Helper: Find highlight at cursor position ---
+function findHighlightAtPosition(
+    editor: vscode.TextEditor,
+    position: vscode.Position,
+    state: HighlightState
+): { pattern: string; details: HighlightDetails } | null {
+    const document = editor.document;
+    
+    // Check each highlight pattern to see if it matches at this position
+    for (const [pattern, details] of state.highlightMap.entries()) {
+        if (details.mode === 'text') {
+            // Simple text match - check if position is within the pattern
+            const wordRange = document.getWordRangeAtPosition(position);
+            if (wordRange) {
+                const word = document.getText(wordRange);
+                if (word === pattern || word.includes(pattern)) {
+                    return { pattern, details };
+                }
+            }
+            
+            // Also check character-by-character for short patterns
+            const line = document.lineAt(position.line);
+            const lineText = line.text;
+            const charPos = position.character;
+            
+            for (let i = 0; i <= charPos; i++) {
+                const substr = lineText.substring(i, i + pattern.length);
+                if (substr === pattern && charPos >= i && charPos < i + pattern.length) {
+                    return { pattern, details };
+                }
+            }
+        } else {
+            // Regex or whole word mode - use cached regex
+            const regex = details.cachedRegex;
+            if (!regex) {
+                continue;
+            }
+            
+            const line = document.lineAt(position.line);
+            const lineText = line.text;
+            regex.lastIndex = 0;
+            
+            let match;
+            while ((match = regex.exec(lineText))) {
+                const matchStart = match.index;
+                const matchEnd = match.index + match[0].length;
+                
+                if (position.character >= matchStart && position.character <= matchEnd) {
+                    return { pattern, details };
+                }
+            }
+        }
+    }
+    
+    return null;
+}
+
+// --- Helper: Update cursor context and context keys ---
+function updateCursorContext(editor: vscode.TextEditor | undefined, state: HighlightState) {
+    if (!editor) {
+        cursorHighlightContext = null;
+        vscode.commands.executeCommand('setContext', 'multiScopeHighlighter.hasHighlightAtCursor', false);
+        return;
+    }
+    
+    const position = editor.selection.active;
+    cursorHighlightContext = findHighlightAtPosition(editor, position, state);
+    
+    vscode.commands.executeCommand(
+        'setContext', 
+        'multiScopeHighlighter.hasHighlightAtCursor', 
+        cursorHighlightContext !== null
+    );
 }
 
 export function activate(context: vscode.ExtensionContext) {
@@ -368,6 +451,19 @@ export function activate(context: vscode.ExtensionContext) {
                 }
 
                 if (foundAtCursor) {
+                    // Check if this highlight belongs to non-active profile
+                    const source = details.source;
+                    const profileName = source?.profileName || 'manual';
+                    const isActiveProfile = !source || source.type === 'manual' || profileName === state.activeProfileName;
+                    
+                    if (!isActiveProfile) {
+                        // Non-active profile - show confirmation
+                        vscode.window.showWarningMessage(
+                            `'${pattern}' belongs to profile '${profileName}' (not active). Press Alt+Q again to confirm removal, or right-click to edit.`
+                        );
+                        return;
+                    }
+                    
                     highlightManager.removeHighlight(pattern);
                     vscode.window.showInformationMessage(`Removed highlight: "${pattern}"`);
                     highlightManager.triggerUpdate();
@@ -418,8 +514,20 @@ export function activate(context: vscode.ExtensionContext) {
                     // Check if any selection overlaps with this highlight
                     for (const range of selectionRanges) {
                         if (!(range.end < highlightStart || range.start > highlightEnd)) {
-                            // Overlap detected - for column mode with multiple selections,
-                            // just remove the highlight (simpler behavior)
+                            // Overlap detected - check profile ownership
+                            const source = details.source;
+                            const profileName = source?.profileName || 'manual';
+                            const isActiveProfile = !source || source.type === 'manual' || profileName === state.activeProfileName;
+                            
+                            if (!isActiveProfile) {
+                                // Non-active profile - show confirmation
+                                vscode.window.showWarningMessage(
+                                    `'${pattern}' belongs to profile '${profileName}' (not active). Use right-click menu to edit or remove.`
+                                );
+                                return;
+                            }
+                            
+                            // For column mode with multiple selections, just remove the highlight (simpler behavior)
                             highlightManager.removeHighlight(pattern);
                             vscode.window.showInformationMessage(`Removed highlight: "${pattern}"`);
                             highlightManager.triggerUpdate();
@@ -442,6 +550,19 @@ export function activate(context: vscode.ExtensionContext) {
                         // Check if any selection overlaps with this highlight
                         for (const range of selectionRanges) {
                             if (!(range.end < highlightStart || range.start > highlightEnd)) {
+                                // Overlap detected - check profile ownership
+                                const source = details.source;
+                                const profileName = source?.profileName || 'manual';
+                                const isActiveProfile = !source || source.type === 'manual' || profileName === state.activeProfileName;
+                                
+                                if (!isActiveProfile) {
+                                    // Non-active profile - show confirmation
+                                    vscode.window.showWarningMessage(
+                                        `'${pattern}' belongs to profile '${profileName}' (not active). Use right-click menu to edit or remove.`
+                                    );
+                                    return;
+                                }
+                                
                                 // Overlap detected - remove the highlight
                                 highlightManager.removeHighlight(pattern);
                                 vscode.window.showInformationMessage(`Removed highlight: "${pattern}"`);
@@ -704,6 +825,239 @@ export function activate(context: vscode.ExtensionContext) {
         highlightManager.toggleDisableAll();
     });
 
+    const removeHighlightAtCursor = vscode.commands.registerCommand('multiScopeHighlighter.removeHighlightAtCursor', async () => {
+        if (!cursorHighlightContext) {
+            return;
+        }
+
+        const { pattern, details } = cursorHighlightContext;
+        const source = details.source;
+        const profileName = source?.profileName || 'manual';
+        const isActiveProfile = !source || source.type === 'manual' || profileName === state.activeProfileName;
+
+        if (!isActiveProfile) {
+            // Non-active profile - show confirmation
+            const answer = await vscode.window.showWarningMessage(
+                `'${pattern}' belongs to profile '${profileName}' (not active). Remove it?`,
+                'Yes', 'No'
+            );
+            if (answer !== 'Yes') {
+                return;
+            }
+        }
+
+        state.pushHistory();
+        highlightManager.removeHighlight(pattern);
+        highlightManager.triggerUpdate();
+        
+        // Update cursor context
+        const editor = vscode.window.activeTextEditor;
+        if (editor) {
+            updateCursorContext(editor, state);
+        }
+    });
+
+    const editHighlightAtCursor = vscode.commands.registerCommand('multiScopeHighlighter.editHighlightAtCursor', async () => {
+        if (!cursorHighlightContext) {
+            return;
+        }
+
+        // Recursive function to show the edit menu
+        const showEditMenu = async () => {
+            // Refresh context to get latest details
+            const editor = vscode.window.activeTextEditor;
+            if (editor) {
+                updateCursorContext(editor, state);
+            }
+            
+            const context = cursorHighlightContext;
+            if (!context) {
+                return;
+            }
+
+            const { pattern, details } = context;
+            const source = details.source;
+            const profileName = source?.profileName || 'manual';
+            const isActiveProfile = !source || source.type === 'manual' || profileName === state.activeProfileName;
+
+            const quickPick = vscode.window.createQuickPick();
+            quickPick.title = `Edit Highlight: '${pattern}'`;
+            quickPick.placeholder = isActiveProfile 
+                ? `From: ${profileName} (ESC to close)` 
+                : `From: ${profileName} (read-only - not active)`;
+
+            quickPick.items = [
+                {
+                    label: '✏️ Edit Pattern',
+                    description: `Current: "${pattern}"`,
+                    detail: 'Change the text pattern being highlighted'
+                },
+                {
+                    label: '🎨 Change Color',
+                    description: `Current: ${details.color}`,
+                    detail: 'Pick a new color for this highlight'
+                },
+                {
+                    label: '🔤 Change Mode',
+                    description: `Current: ${getModeLabelUtil(details.mode)}`,
+                    detail: 'Switch between Text, Whole Word, and Regex matching'
+                }
+            ];
+
+            quickPick.onDidAccept(async () => {
+                const selected = quickPick.selectedItems[0];
+                if (!selected) {
+                    return;
+                }
+
+                quickPick.hide();
+
+                if (selected.label.includes('Edit Pattern')) {
+                    if (!isActiveProfile) {
+                        vscode.window.showWarningMessage(
+                            `Cannot edit '${pattern}' - belongs to non-active profile '${profileName}'`
+                        );
+                        await showEditMenu(); // Return to menu
+                        return;
+                    }
+
+                    // Show input box for editing pattern
+                    const newPattern = await vscode.window.showInputBox({
+                        title: 'Edit Pattern',
+                        prompt: `Edit the pattern (Mode: ${getModeLabelUtil(details.mode)})`,
+                        value: pattern,
+                        validateInput: (value) => {
+                            if (!value || value.trim().length === 0) {
+                                return 'Pattern cannot be empty';
+                            }
+                            
+                            // Validate regex if in regex mode
+                            if (details.mode === 'regex') {
+                                try {
+                                    new RegExp(value, 'gi');
+                                } catch (e) {
+                                    return `Invalid regex: ${e instanceof Error ? e.message : 'Unknown error'}`;
+                                }
+                            }
+                            
+                            // Check if pattern already exists
+                            if (value !== pattern && state.highlightMap.has(value)) {
+                                return 'This pattern is already highlighted';
+                            }
+                            
+                            return undefined;
+                        }
+                    });
+
+                    if (newPattern && newPattern !== pattern) {
+                        state.pushHistory();
+                        
+                        // Remove old highlight
+                        highlightManager.removeHighlight(pattern);
+                        
+                        // Add new highlight with same properties
+                        highlightManager.addHighlight(newPattern, {
+                            color: details.color,
+                            mode: details.mode,
+                            source: details.source
+                        });
+                        
+                        highlightManager.triggerUpdate();
+                        vscode.window.showInformationMessage(`Pattern updated: "${pattern}" → "${newPattern}"`);
+                        
+                        // Update cursor context
+                        const editor = vscode.window.activeTextEditor;
+                        if (editor) {
+                            updateCursorContext(editor, state);
+                        }
+                    }
+                    
+                    // Return to menu after edit
+                    await showEditMenu();
+
+                } else if (selected.label.includes('Change Color')) {
+                    if (!isActiveProfile) {
+                        vscode.window.showWarningMessage(
+                            `Cannot edit '${pattern}' - belongs to non-active profile '${profileName}'`
+                        );
+                        await showEditMenu(); // Return to menu
+                        return;
+                    }
+
+                    // Show color picker
+                    const colorPicker = vscode.window.createQuickPick();
+                    colorPicker.title = `Pick Color for '${pattern}'`;
+
+                    const availableKeys = PALETTE_KEYS.filter(key => {
+                        // Don't show colors already in use
+                        return !Array.from(state.highlightMap.values()).some(d => d.color === key && d !== details);
+                    });
+
+                    colorPicker.items = availableKeys.map(key => ({
+                        label: key,
+                        iconPath: getIconUri(getColorValue(key), 'circle')
+                    }));
+
+                    colorPicker.onDidAccept(() => {
+                        const selectedColor = colorPicker.selectedItems[0];
+                        if (selectedColor) {
+                            state.pushHistory();
+                            highlightManager.addHighlight(pattern, { ...details, color: selectedColor.label });
+                            highlightManager.triggerUpdate();
+                        }
+                        colorPicker.hide();
+                    });
+
+                    colorPicker.onDidHide(() => {
+                        colorPicker.dispose();
+                        // Return to menu after color selection
+                        showEditMenu();
+                    });
+
+                    colorPicker.show();
+
+                } else if (selected.label.includes('Change Mode')) {
+                    if (!isActiveProfile) {
+                        vscode.window.showWarningMessage(
+                            `Cannot edit '${pattern}' - belongs to non-active profile '${profileName}'`
+                        );
+                        await showEditMenu(); // Return to menu
+                        return;
+                    }
+
+                    const nextMode = getNextMode(details.mode);
+                    
+                    // Validate pattern for new mode (especially regex)
+                    if (nextMode === 'regex') {
+                        try {
+                            new RegExp(pattern, 'gi');
+                        } catch (e) {
+                            vscode.window.showErrorMessage(
+                                `Cannot change to Regex mode: "${pattern}" is not a valid regex. ` +
+                                `Use Edit Pattern first to fix it.`
+                            );
+                            await showEditMenu(); // Return to menu
+                            return;
+                        }
+                    }
+                    
+                    state.pushHistory();
+                    highlightManager.addHighlight(pattern, { ...details, mode: nextMode });
+                    highlightManager.triggerUpdate();
+                    vscode.window.showInformationMessage(`Mode changed to: ${getModeLabelUtil(nextMode)}`);
+                    
+                    // Return to menu after mode change
+                    await showEditMenu();
+                }
+            });
+
+            quickPick.show();
+        };
+
+        // Start the menu
+        await showEditMenu();
+    });
+
     const saveProfile = vscode.commands.registerCommand('multiScopeHighlighter.saveProfile', async () => {
         await profileManager.saveProfile();
     });
@@ -963,6 +1317,12 @@ export function activate(context: vscode.ExtensionContext) {
 
     // --- Event Listeners ---
 
+    // Track cursor position to enable context menu
+    vscode.window.onDidChangeTextEditorSelection(e => {
+        updateCursorContext(e.textEditor, state);
+    }, null, context.subscriptions);
+
+    // Also update when active editor changes
     vscode.window.onDidChangeActiveColorTheme(() => {
         highlightManager.refresh();
     }, null, context.subscriptions);
@@ -970,6 +1330,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.window.onDidChangeActiveTextEditor(editor => {
         if (editor) {
             highlightManager.triggerUpdate();
+            updateCursorContext(editor, state);
         }
     }, null, context.subscriptions);
 
@@ -1020,6 +1381,8 @@ export function activate(context: vscode.ExtensionContext) {
         setOpacity,
         toggleContrast,
         toggleDisableAll,
+        removeHighlightAtCursor,
+        editHighlightAtCursor,
         showMenu,
         showMenuWithModifiers,
         showProfileMenu,
