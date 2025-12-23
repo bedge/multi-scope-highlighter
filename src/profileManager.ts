@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { HighlightState } from './state';
-import { HighlightDetails } from './types';
+import { HighlightDetails, ProfileMetadata } from './types';
 import { HighlightMode } from './utils';
 
 /**
@@ -16,6 +16,18 @@ interface SavedProfileItem {
 }
 
 /**
+ * Profile file format with metadata
+ */
+interface ProfileFileFormat {
+    metadata?: {
+        version: string;
+        created?: string;
+        modified?: string;
+    };
+    highlights: SavedProfileItem[];
+}
+
+/**
  * Manages profile save/load operations and file I/O
  */
 export class ProfileManager {
@@ -24,7 +36,8 @@ export class ProfileManager {
         private state: HighlightState,
         private addHighlightCallback: (pattern: string, details?: Partial<HighlightDetails>) => void,
         private clearAllCallback: () => void,
-        private triggerUpdateCallback: () => void
+        private triggerUpdateCallback: () => void,
+        private statusBarUpdateCallback: () => void
     ) {}
 
     /**
@@ -59,23 +72,55 @@ export class ProfileManager {
 
         const profileName = name || await vscode.window.showInputBox({
             prompt: 'Enter name for this highlight profile',
-            value: this.state.currentProfileName || ''
+            value: this.state.currentProfile?.name || this.state.currentProfileName || ''
         });
 
         if (!profileName) {
             return;
         }
 
-        const exportData = Array.from(this.state.highlightMap.entries()).map(([pattern, details]) => ({
-            pattern,
-            color: details.color,
-            mode: details.mode
-        }));
-
         const filePath = path.join(savePath, `${profileName}.json`);
+        const now = new Date().toISOString();
+        
+        // Check if file exists to preserve created date
+        let createdDate = now;
+        if (fs.existsSync(filePath)) {
+            try {
+                const existingContent = fs.readFileSync(filePath, 'utf-8');
+                const existingData = JSON.parse(existingContent) as ProfileFileFormat;
+                if (existingData.metadata?.created) {
+                    createdDate = existingData.metadata.created;
+                }
+            } catch (e) {
+                // Ignore parse errors, use new date
+            }
+        }
+
+        const exportData: ProfileFileFormat = {
+            metadata: {
+                version: '0.0.19',
+                created: createdDate,
+                modified: now
+            },
+            highlights: Array.from(this.state.highlightMap.entries()).map(([pattern, details]) => ({
+                pattern,
+                color: details.color,
+                mode: details.mode
+            }))
+        };
+
         fs.writeFileSync(filePath, JSON.stringify(exportData, null, 2));
 
-        this.state.currentProfileName = profileName;
+        // Update state with profile metadata
+        this.state.currentProfile = {
+            name: profileName,
+            path: filePath,
+            scope: 'workspace',
+            lastModified: new Date(now)
+        };
+        this.state.currentProfileName = profileName; // Legacy compatibility
+
+        this.statusBarUpdateCallback();
         vscode.window.showInformationMessage(`Profile saved as '${profileName}'`);
     }
 
@@ -110,21 +155,49 @@ export class ProfileManager {
         const content = fs.readFileSync(filePath, 'utf-8');
 
         try {
-            const data: SavedProfileItem[] = JSON.parse(content);
+            const parsed = JSON.parse(content);
+            
+            // Check if it's the new format with metadata or legacy format
+            let highlights: SavedProfileItem[];
+            let metadata: ProfileFileFormat['metadata'] | undefined;
+            
+            if (Array.isArray(parsed)) {
+                // Legacy format: array of highlights
+                highlights = parsed;
+            } else if (parsed.highlights && Array.isArray(parsed.highlights)) {
+                // New format: object with metadata and highlights
+                highlights = parsed.highlights;
+                metadata = parsed.metadata;
+            } else {
+                throw new Error('Invalid profile format');
+            }
+
             this.clearAllCallback();
 
-            data.forEach(item => {
+            highlights.forEach(item => {
                 const pattern = item.pattern || item.word || '';
                 if (pattern) {
                     this.addHighlightCallback(pattern, { color: item.color, mode: item.mode || 'text' });
                 }
             });
 
-            this.state.currentProfileName = selected.replace('.json', '');
+            const profileName = selected.replace('.json', '');
+            const stats = fs.statSync(filePath);
+            
+            // Update state with profile metadata
+            this.state.currentProfile = {
+                name: profileName,
+                path: filePath,
+                scope: 'workspace',
+                lastModified: metadata?.modified ? new Date(metadata.modified) : stats.mtime
+            };
+            this.state.currentProfileName = profileName; // Legacy compatibility
+
             this.triggerUpdateCallback();
-            vscode.window.showInformationMessage(`Profile '${this.state.currentProfileName}' loaded.`);
+            this.statusBarUpdateCallback();
+            vscode.window.showInformationMessage(`Profile '${profileName}' loaded.`);
         } catch (e) {
-            vscode.window.showErrorMessage('Failed to parse profile.');
+            vscode.window.showErrorMessage(`Failed to parse profile: ${e}`);
         }
     }
 
@@ -153,9 +226,14 @@ export class ProfileManager {
         try {
             fs.unlinkSync(path.join(savePath, selected));
             const deletedName = selected.replace('.json', '');
-            if (this.state.currentProfileName === deletedName) {
+            
+            // Clear profile metadata if this was the active profile
+            if (this.state.currentProfileName === deletedName || 
+                this.state.currentProfile?.name === deletedName) {
                 this.state.currentProfileName = undefined;
+                this.state.currentProfile = null;
             }
+            
             vscode.window.showInformationMessage(`Profile '${deletedName}' deleted.`);
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to delete: ${error}`);

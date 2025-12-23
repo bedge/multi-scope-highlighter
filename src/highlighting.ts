@@ -234,6 +234,7 @@ export class HighlightManager {
         this.state.highlightMap.clear();
         this.state.colorIndex = 0;
         this.state.currentProfileName = undefined;
+        this.state.currentProfile = null;
         this.statusBarUpdateCallback();
     }
 
