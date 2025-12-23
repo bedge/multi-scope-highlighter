@@ -1,49 +1,31 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import {
+    HighlightMode,
+    PALETTE,
+    PALETTE_KEYS,
+    AdaptiveColor,
+    stripUnmatchedDelimiters,
+    applyOpacity,
+    getColorValue as getColorValueUtil,
+    isNoiseWord as isNoiseWordUtil,
+    getNextColorKey as getNextColorKeyUtil,
+    createHighlightRegex,
+    parseNoiseWords,
+    getModeLabel as getModeLabelUtil,
+    getNextMode
+} from './utils';
 
 // --- Types ---
-type HighlightMode = 'text' | 'whole' | 'regex';
 type StyleMode = 'fill' | 'box' | 'hybrid';
 
 interface HighlightDetails {
     color: string;
     mode: HighlightMode;
     // Optimization: Cache the regex so we don't rebuild it on every keystroke
-    cachedRegex?: RegExp; 
+    cachedRegex?: RegExp | null; 
 }
-
-interface AdaptiveColor {
-    dark: string;
-    light: string;
-    text: string; // High contrast text color (Black/White)
-}
-
-// --- Adaptive Color Palette (Optimized for Dark Mode: Neon/Bold/Primary) ---
-const PALETTE: Record<string, AdaptiveColor> = {
-    'Neon Yellow':   { dark: 'rgba(255, 255, 0, 0.9)',    light: 'rgba(255, 255, 0, 0.5)',   text: '#000000' },
-    'Electric Lime': { dark: 'rgba(0, 255, 0, 0.9)',      light: 'rgba(0, 255, 0, 0.5)',     text: '#000000' },
-    'Cyan':          { dark: 'rgba(0, 255, 255, 0.9)',    light: 'rgba(0, 255, 255, 0.5)',   text: '#000000' },
-    'Hot Pink':      { dark: 'rgba(255, 20, 147, 0.9)',   light: 'rgba(255, 20, 147, 0.5)',  text: '#FFFFFF' },
-    'Bright Orange': { dark: 'rgba(255, 69, 0, 0.9)',     light: 'rgba(255, 165, 0, 0.5)',   text: '#FFFFFF' },
-    'Vivid Red':     { dark: 'rgba(255, 0, 0, 0.9)',      light: 'rgba(255, 0, 0, 0.5)',     text: '#FFFFFF' },
-    'Deep Sky Blue': { dark: 'rgba(0, 191, 255, 0.9)',    light: 'rgba(0, 191, 255, 0.5)',   text: '#000000' },
-    'Magenta':       { dark: 'rgba(255, 0, 255, 0.9)',    light: 'rgba(255, 0, 255, 0.5)',   text: '#FFFFFF' },
-    'Gold':          { dark: 'rgba(255, 215, 0, 0.9)',    light: 'rgba(255, 215, 0, 0.5)',   text: '#000000' },
-    'Spring Green':  { dark: 'rgba(0, 255, 127, 0.9)',    light: 'rgba(0, 255, 127, 0.5)',   text: '#000000' },
-    'Dark Violet':   { dark: 'rgba(148, 0, 211, 0.9)',    light: 'rgba(148, 0, 211, 0.5)',   text: '#FFFFFF' },
-    'Crimson':       { dark: 'rgba(220, 20, 60, 0.9)',    light: 'rgba(220, 20, 60, 0.5)',   text: '#FFFFFF' },
-    'Turquoise':     { dark: 'rgba(64, 224, 208, 0.9)',   light: 'rgba(64, 224, 208, 0.5)',  text: '#000000' },
-    'Coral':         { dark: 'rgba(255, 127, 80, 0.9)',   light: 'rgba(255, 127, 80, 0.5)',  text: '#000000' },
-    'Royal Blue':    { dark: 'rgba(65, 105, 225, 0.9)',   light: 'rgba(65, 105, 225, 0.5)',  text: '#FFFFFF' },
-    'Chartreuse':    { dark: 'rgba(127, 255, 0, 0.9)',    light: 'rgba(127, 255, 0, 0.5)',   text: '#000000' },
-    'Fuchsia':       { dark: 'rgba(255, 0, 255, 0.9)',    light: 'rgba(255, 0, 255, 0.5)',   text: '#FFFFFF' },
-    'Aquamarine':    { dark: 'rgba(127, 255, 212, 0.9)',  light: 'rgba(127, 255, 212, 0.5)', text: '#000000' },
-    'Tomato':        { dark: 'rgba(255, 99, 71, 0.9)',    light: 'rgba(255, 99, 71, 0.5)',   text: '#FFFFFF' },
-    'Dodger Blue':   { dark: 'rgba(30, 144, 255, 0.9)',   light: 'rgba(30, 144, 255, 0.5)',  text: '#FFFFFF' }
-};
-
-const PALETTE_KEYS = Object.keys(PALETTE);
 
 // --- Helper: Generate SVG Icons ---
 function getIconUri(color: string, shape: 'rect' | 'circle' = 'rect'): vscode.Uri {
@@ -137,7 +119,7 @@ export function activate(context: vscode.ExtensionContext) {
     function getConfiguration() {
         const config = vscode.workspace.getConfiguration('multiScopeHighlighter');
         const noiseWordsStr = config.get<string>('excludeNoiseWords', '');
-        const excludeNoiseWords = noiseWordsStr.split(/\s+/).filter(w => w.length > 0);
+        const excludeNoiseWords = parseNoiseWords(noiseWordsStr);
         return {
             opacity: config.get<number>('fillOpacity', 0.35),
             contrast: config.get<string>('textContrast', 'inherit'),
@@ -147,27 +129,14 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     function isNoiseWord(word: string): boolean {
-        if (!word || word.length === 0) {
-            return true;
-        }
         const config = getConfiguration();
-        return config.excludeNoiseWords.includes(word);
-    }
-
-    function applyOpacity(rgbaColor: string, opacity: number): string {
-        return rgbaColor.replace(/[\d.]+\)$/, `${opacity})`);
+        return isNoiseWordUtil(word, config.excludeNoiseWords);
     }
 
     function getColorValue(colorKey: string): string {
-        if (PALETTE[colorKey]) {
-            const kind = vscode.window.activeColorTheme.kind;
-            if (kind === vscode.ColorThemeKind.Light || kind === vscode.ColorThemeKind.HighContrastLight) {
-                return PALETTE[colorKey].light;
-            } else {
-                return PALETTE[colorKey].dark;
-            }
-        }
-        return colorKey;
+        const kind = vscode.window.activeColorTheme.kind;
+        const isLightTheme = kind === vscode.ColorThemeKind.Light || kind === vscode.ColorThemeKind.HighContrastLight;
+        return getColorValueUtil(colorKey, isLightTheme);
     }
 
     function updateStatusBar() {
@@ -178,116 +147,12 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     function getNextColorKey(): string {
-        const key = PALETTE_KEYS[colorIndex % PALETTE_KEYS.length];
+        const key = getNextColorKeyUtil(colorIndex);
         colorIndex++;
         return key;
     }
 
-    function stripUnmatchedDelimiters(word: string): string {
-        if (!word) {
-            return word;
-        }
 
-        const pairs: Record<string, string> = {
-            '(': ')',
-            '[': ']',
-            '{': '}',
-            '"': '"',
-            "'": "'",
-            '`': '`',
-            '*': '*',
-            '~': '~',
-            '_': '_',
-            '.': '.'
-        };
-
-        let result = word;
-        let changed = true;
-
-        // Keep stripping until no more unmatched delimiters are found
-        while (changed) {
-            changed = false;
-            
-            if (result.length === 0) {
-                break;
-            }
-            
-            const first = result[0];
-            const last = result[result.length - 1];
-
-            // Check if first char is a delimiter and count consecutive occurrences
-            if (first && pairs[first]) {
-                const expectedClosing = pairs[first];
-                
-                // Count consecutive opening delimiters at start
-                let openCount = 0;
-                for (let i = 0; i < result.length && result[i] === first; i++) {
-                    openCount++;
-                }
-                
-                // Count consecutive closing delimiters at end
-                let closeCount = 0;
-                for (let i = result.length - 1; i >= 0 && result[i] === expectedClosing; i--) {
-                    closeCount++;
-                }
-                
-                // For symmetric delimiters, need to ensure we're not counting the same characters
-                if (first === expectedClosing && openCount + closeCount >= result.length) {
-                    // All characters are the same delimiter - this is ambiguous
-                    // Strip from the start
-                    if (openCount > 0) {
-                        result = result.substring(openCount);
-                        changed = true;
-                        continue;
-                    }
-                }
-                
-                // Check if they're balanced
-                if (openCount > 0 && closeCount > 0 && openCount === closeCount && result.length > openCount + closeCount) {
-                    // Balanced - skip to next iteration to check inner content
-                    // But first check if there are other unmatched delimiters
-                    const inner = result.substring(openCount, result.length - closeCount);
-                    if (inner.length === 0 || !Object.keys(pairs).includes(inner[0])) {
-                        // No more delimiters to strip
-                        break;
-                    }
-                    // Continue to check inner content (will be handled in next iteration)
-                } else if (openCount > closeCount) {
-                    // More opening than closing - strip excess opening
-                    const excess = openCount - closeCount;
-                    result = result.substring(excess);
-                    changed = true;
-                    continue;
-                } else if (closeCount > openCount) {
-                    // More closing than opening - strip excess closing
-                    const excess = closeCount - openCount;
-                    result = result.substring(0, result.length - excess);
-                    changed = true;
-                    continue;
-                }
-            }
-
-            // Check if last char is a closing delimiter (but first is not its opening)
-            const closingDelimiters = Object.values(pairs);
-            if (last && closingDelimiters.includes(last)) {
-                // Find the corresponding opening delimiter
-                const openingDelimiter = Object.keys(pairs).find(key => pairs[key] === last);
-                if (openingDelimiter && first !== openingDelimiter) {
-                    // Unmatched closing delimiter(s) at the end
-                    // Count consecutive closing delimiters
-                    let closeCount = 0;
-                    for (let i = result.length - 1; i >= 0 && result[i] === last; i--) {
-                        closeCount++;
-                    }
-                    result = result.substring(0, result.length - closeCount);
-                    changed = true;
-                    continue;
-                }
-            }
-        }
-
-        return result;
-    }
 
     // Optimization: Debounce the update trigger
     function triggerUpdate() {
@@ -392,15 +257,8 @@ export function activate(context: vscode.ExtensionContext) {
         const mode = details?.mode || 'text';
         
         // Cache the Regex immediately if needed
-        let cachedRegex: RegExp | undefined = undefined;
-        try {
-            if (mode === 'regex') {
-                cachedRegex = new RegExp(pattern, 'g');
-            } else if (mode === 'whole') {
-                const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                cachedRegex = new RegExp(`\\b${escaped}\\b`, 'g');
-            }
-        } catch (e) {
+        const cachedRegex = createHighlightRegex(pattern, mode);
+        if ((mode === 'regex' || mode === 'whole') && cachedRegex === null) {
             vscode.window.showErrorMessage(`Invalid Regex: ${pattern}`);
             return;
         }
@@ -545,6 +403,11 @@ export function activate(context: vscode.ExtensionContext) {
                     detail: 'Load highlights from a saved JSON file'
                 },
                 { 
+                    label: '⌨️ Keyboard Shortcuts', 
+                    description: '',
+                    detail: 'View all keybindings for this extension'
+                },
+                { 
                     label: '🔥 Clear All', 
                     description: '',
                     detail: 'Remove all active highlights immediately'
@@ -589,6 +452,11 @@ export function activate(context: vscode.ExtensionContext) {
             } else if (selected.label.includes('Load Profile')) {
                 quickPick.dispose();
                 await vscode.commands.executeCommand('multiScopeHighlighter.loadProfile');
+                
+            } else if (selected.label.includes('Keyboard Shortcuts')) {
+                quickPick.dispose();
+                await vscode.commands.executeCommand('multiScopeHighlighter.showKeybindings');
+                vscode.commands.executeCommand('multiScopeHighlighter.showMenu');
                 
             } else if (selected.label.includes('Clear All')) {
                 vscode.commands.executeCommand('multiScopeHighlighter.clearAll');
@@ -1131,15 +999,7 @@ export function activate(context: vscode.ExtensionContext) {
                 return new vscode.ThemeIcon('symbol-text');
             };
 
-            const getModeLabel = (mode: HighlightMode) => {
-                if (mode === 'regex') {
-                    return 'Regex';
-                }
-                if (mode === 'whole') {
-                    return 'Whole Word';
-                }
-                return 'Text';
-            };
+            const getModeLabel = getModeLabelUtil;
 
             const refreshItems = () => {
                 const items = Array.from(highlightMap.entries()).map(([pattern, details]) => {
@@ -1233,12 +1093,7 @@ export function activate(context: vscode.ExtensionContext) {
                     }
                 
                 } else if (tooltip.includes('Click to Cycle')) {
-                    let newMode: HighlightMode = 'text';
-                    if (details.mode === 'text') {
-                        newMode = 'whole';
-                    } else if (details.mode === 'whole') {
-                        newMode = 'regex';
-                    }
+                    const newMode = getNextMode(details.mode);
                     addHighlight(pattern, { ...details, mode: newMode });
                     refreshItems();
                     triggerUpdate();
@@ -1288,6 +1143,50 @@ export function activate(context: vscode.ExtensionContext) {
         });
     });
 
+    const showKeybindings = vscode.commands.registerCommand('multiScopeHighlighter.showKeybindings', async () => {
+        const isMac = process.platform === 'darwin';
+        
+        const keybindings = [
+            {
+                label: '$(symbol-key) Toggle Highlight',
+                description: isMac ? '⌥Q' : 'Alt+Q',
+                detail: 'Toggle highlight for selected text or word at cursor'
+            },
+            {
+                label: '$(symbol-key) Highlight Words',
+                description: isMac ? '⇧⌥Q' : 'Shift+Alt+Q',
+                detail: 'Highlight individual words from selection (split by whitespace)'
+            },
+            {
+                label: '$(symbol-key) Undo',
+                description: isMac ? '⌘⌥Z' : 'Ctrl+Alt+Z',
+                detail: 'Undo last highlight change'
+            },
+            {
+                label: '$(symbol-key) Redo',
+                description: isMac ? '⌘⌥Y' : 'Ctrl+Alt+Y',
+                detail: 'Redo last highlight change'
+            },
+            {
+                label: '$(info) Status Bar',
+                description: 'Click 🌈 icon',
+                detail: 'Open main menu (you are here!)'
+            }
+        ];
+
+        const selected = await vscode.window.showQuickPick(keybindings, {
+            title: 'Multi-Scope Highlighter - Keyboard Shortcuts',
+            placeHolder: 'All available keybindings for this extension',
+            matchOnDescription: true,
+            matchOnDetail: true
+        });
+
+        // If user selected a keybinding item, optionally open keyboard shortcuts
+        if (selected && selected.label.includes('Status Bar')) {
+            // Do nothing, just informational
+        }
+    });
+
     // --- Event Listeners ---
     
     vscode.window.onDidChangeActiveColorTheme(() => {
@@ -1327,7 +1226,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }, null, context.subscriptions);
 
-    context.subscriptions.push(toggleHighlight, highlightWords, clearAll, undoHighlight, redoHighlight, toggleScope, saveProfile, loadProfile, deleteProfile, manageHighlights, toggleStyle, setOpacity, toggleContrast, showMenu);
+    context.subscriptions.push(toggleHighlight, highlightWords, clearAll, undoHighlight, redoHighlight, toggleScope, saveProfile, loadProfile, deleteProfile, manageHighlights, toggleStyle, setOpacity, toggleContrast, showMenu, showKeybindings);
 }
 
 export function deactivate() {}
