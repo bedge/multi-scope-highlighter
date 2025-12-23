@@ -234,6 +234,21 @@ export function activate(context: vscode.ExtensionContext) {
                 detail: 'Clear all highlights and start a new profile'
             },
             {
+                label: '➕ Merge Profile',
+                description: '',
+                detail: 'Add highlights from another profile to current'
+            },
+            {
+                label: '📝 Load Template',
+                description: '',
+                detail: 'Load pre-configured highlight patterns'
+            },
+            {
+                label: '📋 Duplicate Profile',
+                description: '',
+                detail: 'Create a copy of an existing profile'
+            },
+            {
                 label: '🗑️ Delete Profile',
                 description: '',
                 detail: 'Delete a saved profile file'
@@ -263,6 +278,18 @@ export function activate(context: vscode.ExtensionContext) {
             } else if (selected.label.includes('New Profile')) {
                 quickPick.dispose();
                 await vscode.commands.executeCommand('multiScopeHighlighter.newProfile');
+
+            } else if (selected.label.includes('Merge Profile')) {
+                quickPick.dispose();
+                await vscode.commands.executeCommand('multiScopeHighlighter.mergeProfile');
+
+            } else if (selected.label.includes('Load Template')) {
+                quickPick.dispose();
+                await vscode.commands.executeCommand('multiScopeHighlighter.loadTemplate');
+
+            } else if (selected.label.includes('Duplicate Profile')) {
+                quickPick.dispose();
+                await vscode.commands.executeCommand('multiScopeHighlighter.duplicateProfile');
 
             } else if (selected.label.includes('Delete Profile')) {
                 quickPick.dispose();
@@ -684,6 +711,18 @@ export function activate(context: vscode.ExtensionContext) {
         await profileManager.newProfile();
     });
 
+    const mergeProfile = vscode.commands.registerCommand('multiScopeHighlighter.mergeProfile', async () => {
+        await profileManager.mergeProfile();
+    });
+
+    const duplicateProfile = vscode.commands.registerCommand('multiScopeHighlighter.duplicateProfile', async () => {
+        await profileManager.duplicateProfile();
+    });
+
+    const loadTemplate = vscode.commands.registerCommand('multiScopeHighlighter.loadTemplate', async () => {
+        await profileManager.loadTemplate();
+    });
+
     const manageHighlights = vscode.commands.registerCommand('multiScopeHighlighter.manageHighlights', () => {
         return new Promise<void>((resolve) => {
             if (state.highlightMap.size === 0) {
@@ -960,6 +999,9 @@ export function activate(context: vscode.ExtensionContext) {
         deleteProfile,
         switchProfile,
         newProfile,
+        mergeProfile,
+        duplicateProfile,
+        loadTemplate,
         manageHighlights,
         toggleStyle,
         setOpacity,
