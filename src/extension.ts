@@ -133,6 +133,16 @@ export function activate(context: vscode.ExtensionContext) {
                     detail: 'Load highlights from a saved JSON file'
                 },
                 {
+                    label: '🔄 Switch Profile',
+                    description: '',
+                    detail: 'Quick switch to a different saved profile'
+                },
+                {
+                    label: '✨ New Profile',
+                    description: '',
+                    detail: 'Clear all highlights and start a new profile'
+                },
+                {
                     label: '⌨️ Keyboard Shortcuts',
                     description: '',
                     detail: 'View all keybindings for this extension'
@@ -182,6 +192,14 @@ export function activate(context: vscode.ExtensionContext) {
             } else if (selected.label.includes('Load Profile')) {
                 quickPick.dispose();
                 await vscode.commands.executeCommand('multiScopeHighlighter.loadProfile');
+
+            } else if (selected.label.includes('Switch Profile')) {
+                quickPick.dispose();
+                await vscode.commands.executeCommand('multiScopeHighlighter.switchProfile');
+
+            } else if (selected.label.includes('New Profile')) {
+                quickPick.dispose();
+                await vscode.commands.executeCommand('multiScopeHighlighter.newProfile');
 
             } else if (selected.label.includes('Keyboard Shortcuts')) {
                 quickPick.dispose();
@@ -607,6 +625,14 @@ export function activate(context: vscode.ExtensionContext) {
         await profileManager.deleteProfile();
     });
 
+    const switchProfile = vscode.commands.registerCommand('multiScopeHighlighter.switchProfile', async () => {
+        await profileManager.switchProfile();
+    });
+
+    const newProfile = vscode.commands.registerCommand('multiScopeHighlighter.newProfile', async () => {
+        await profileManager.newProfile();
+    });
+
     const manageHighlights = vscode.commands.registerCommand('multiScopeHighlighter.manageHighlights', () => {
         return new Promise<void>((resolve) => {
             if (state.highlightMap.size === 0) {
@@ -881,6 +907,8 @@ export function activate(context: vscode.ExtensionContext) {
         saveProfile,
         loadProfile,
         deleteProfile,
+        switchProfile,
+        newProfile,
         manageHighlights,
         toggleStyle,
         setOpacity,

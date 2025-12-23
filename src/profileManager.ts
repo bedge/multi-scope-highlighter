@@ -246,15 +246,91 @@ export class ProfileManager {
     }
 
     /**
-     * List all available profiles
-     * Returns array of profile file names
+     * List all available profiles with metadata
+     * Returns array of ProfileMetadata objects
      */
-    async listProfiles(): Promise<string[]> {
+    async listProfiles(): Promise<ProfileMetadata[]> {
         const savePath = this.getSavePath();
         if (!savePath || !fs.existsSync(savePath)) {
             return [];
         }
 
-        return fs.readdirSync(savePath).filter(f => f.endsWith('.json'));
+        const files = fs.readdirSync(savePath).filter(f => f.endsWith('.json'));
+        const profiles: ProfileMetadata[] = [];
+
+        for (const file of files) {
+            try {
+                const filePath = path.join(savePath, file);
+                const stats = fs.statSync(filePath);
+                const name = file.replace('.json', '');
+                
+                profiles.push({
+                    name,
+                    path: filePath,
+                    scope: 'workspace',
+                    lastModified: stats.mtime
+                });
+            } catch (error) {
+                // Skip files that can't be read
+                continue;
+            }
+        }
+
+        // Sort by last modified (most recent first)
+        return profiles.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+    }
+
+    /**
+     * Switch to a different profile
+     * Shows QuickPick of available profiles and loads the selected one
+     */
+    async switchProfile(): Promise<void> {
+        const profiles = await this.listProfiles();
+        
+        if (profiles.length === 0) {
+            vscode.window.showInformationMessage('No saved profiles found. Create one with Save Profile command.');
+            return;
+        }
+
+        // Format profile list for QuickPick
+        const items = profiles.map(profile => ({
+            label: profile.name,
+            description: profile.lastModified.toLocaleString(),
+            detail: profile.name === this.state.currentProfile?.name ? '✓ Currently loaded' : '',
+            profile
+        }));
+
+        const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: 'Select a profile to load'
+        });
+
+        if (!selected) {
+            return;
+        }
+
+        // Load the selected profile
+        await this.loadProfile(selected.profile.name + '.json');
+        vscode.window.showInformationMessage(`Loaded profile: ${selected.profile.name}`);
+    }
+
+    /**
+     * Start a new profile by clearing all highlights
+     */
+    async newProfile(): Promise<void> {
+        const choice = await vscode.window.showWarningMessage(
+            'Clear all current highlights and start a new profile?',
+            { modal: true },
+            'Yes',
+            'No'
+        );
+
+        if (choice !== 'Yes') {
+            return;
+        }
+
+        // Clear all highlights
+        this.clearAllCallback();
+        
+        vscode.window.showInformationMessage('New profile started. Add highlights and save when ready.');
     }
 }
