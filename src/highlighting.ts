@@ -223,6 +223,12 @@ export class HighlightManager {
 
         this.state.decorationMap.set(pattern, decorationType);
         this.state.highlightMap.set(pattern, { color: colorKey, mode, cachedRegex, source });
+        
+        // Mark active profile as modified if this highlight belongs to it
+        if (source.type === 'profile' && source.profileName === this.state.activeProfileName) {
+            this.state.activeProfileModified = true;
+        }
+        
         this.statusBarUpdateCallback();
     }
 
@@ -232,9 +238,16 @@ export class HighlightManager {
     removeHighlight(pattern: string): void {
         const decoration = this.state.decorationMap.get(pattern);
         if (decoration) {
+            const details = this.state.highlightMap.get(pattern);
             decoration.dispose();
             this.state.decorationMap.delete(pattern);
             this.state.highlightMap.delete(pattern);
+            
+            // Mark active profile as modified if this highlight belonged to it
+            if (details?.source?.type === 'profile' && details.source.profileName === this.state.activeProfileName) {
+                this.state.activeProfileModified = true;
+            }
+            
             this.statusBarUpdateCallback();
         }
     }

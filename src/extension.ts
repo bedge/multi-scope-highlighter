@@ -1373,6 +1373,7 @@ export function activate(context: vscode.ExtensionContext) {
             // Check current active state dynamically
             const isActive = state.activeProfileName === profileName;
             const isEnabled = state.enabledProfiles.has(profileName);
+            const isModified = state.activeProfileModified;
             
             const items = [
                 {
@@ -1386,6 +1387,15 @@ export function activate(context: vscode.ExtensionContext) {
                     detail: 'See and edit all highlights in this profile'
                 }
             ];
+
+            // Show Save option if this is the active profile and it has been modified
+            if (isActive && isModified) {
+                items.unshift({
+                    label: '💾 Save Profile',
+                    description: '',
+                    detail: 'Save changes to this profile'
+                });
+            }
 
             // Only show Activate if not currently active
             if (!isActive) {
@@ -1431,7 +1441,10 @@ export function activate(context: vscode.ExtensionContext) {
 
             quickPick.dispose();
 
-            if (selected.label.includes('Activate')) {
+            if (selected.label.includes('Save Profile')) {
+                await profileManager.saveProfile(profileName);
+                
+            } else if (selected.label.includes('Activate')) {
                 await profileManager.activateProfile(`${profileName}.json`);
                 
             } else if (selected.label.includes('Change Color')) {

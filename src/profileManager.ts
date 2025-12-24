@@ -163,7 +163,40 @@ export class ProfileManager {
             return;
         }
 
-        const savePath = this.getSavePath();
+        // Ask for scope if no name provided (new save)
+        let scope: 'workspace' | 'global' = 'workspace';
+        if (!name) {
+            const scopeChoice = await vscode.window.showQuickPick([
+                { label: '📁 Workspace', value: 'workspace' as const, description: 'Save to current workspace only' },
+                { label: '🌐 Global', value: 'global' as const, description: 'Save globally (available in all workspaces)' }
+            ], {
+                placeHolder: 'Where should this profile be saved?'
+            });
+
+            if (!scopeChoice) {
+                return;
+            }
+            scope = scopeChoice.value as 'workspace' | 'global';
+        } else {
+            // When saving existing profile, preserve its scope
+            // Check if it exists in workspace first
+            const workspacePath = this.getSavePath();
+            if (workspacePath) {
+                const workspaceFile = path.join(workspacePath, `${name}.json`);
+                if (fs.existsSync(workspaceFile)) {
+                    scope = 'workspace';
+                } else {
+                    // Check global
+                    const globalPath = this.getGlobalSavePath();
+                    const globalFile = path.join(globalPath, `${name}.json`);
+                    if (fs.existsSync(globalFile)) {
+                        scope = 'global';
+                    }
+                }
+            }
+        }
+
+        const savePath = scope === 'workspace' ? this.getSavePath() : this.getGlobalSavePath();
         if (!savePath) {
             return;
         }
@@ -227,6 +260,7 @@ export class ProfileManager {
             color: profileColor
         };
         this.state.currentProfileName = profileName; // Legacy compatibility
+        this.state.activeProfileModified = false; // Reset modified flag after save
 
         await this.statusBarUpdateCallback();
         vscode.window.showInformationMessage(`Profile saved as '${profileName}'`);
@@ -329,6 +363,7 @@ export class ProfileManager {
                 color: metadata?.color
             };
             this.state.currentProfileName = profileName; // Legacy compatibility
+            this.state.activeProfileModified = false; // Reset modified flag when activating
 
             this.triggerUpdateCallback();
             await this.statusBarUpdateCallback();
