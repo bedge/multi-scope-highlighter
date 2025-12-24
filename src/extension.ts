@@ -1245,6 +1245,21 @@ export function activate(context: vscode.ExtensionContext) {
         quickPick.show();
     });
 
+    const quickToggleProfile = vscode.commands.registerCommand('multiScopeHighlighter.quickToggleProfile', async (profileName: string, isActive: boolean, isEnabled: boolean) => {
+        if (isActive || isEnabled) {
+            // Disable the profile
+            await profileManager.disableSpecificProfile(profileName);
+        } else {
+            // Enable the profile
+            state.enabledProfiles.add(profileName);
+            await profileManager.loadProfileHighlights(profileName, true);
+            
+            highlightManager.triggerUpdate();
+            await statusBar.update();
+            vscode.window.showInformationMessage(`Profile '${profileName}' enabled.`);
+        }
+    });
+
     const manageHighlights = vscode.commands.registerCommand('multiScopeHighlighter.manageHighlights', () => {
         return new Promise<void>((resolve) => {
             if (state.highlightMap.size === 0) {
@@ -1536,6 +1551,7 @@ export function activate(context: vscode.ExtensionContext) {
         enableProfile,
         disableProfile,
         manageProfile,
+        quickToggleProfile,
         manageHighlights,
         toggleStyle,
         setOpacity,

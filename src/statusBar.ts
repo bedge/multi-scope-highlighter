@@ -98,22 +98,46 @@ export class StatusBarManager {
                 const colorEmoji = this.getColorEmoji(profile.color);
                 const symbol = isActive ? '◆' : (isEnabled ? '●' : '○');
                 
-                const statusBar = vscode.window.createStatusBarItem(
+                // Create main profile indicator (color + symbol)
+                const mainBar = vscode.window.createStatusBarItem(
                     vscode.StatusBarAlignment.Right,
-                    priority--
+                    priority
                 );
-                statusBar.text = `${colorEmoji}${symbol}`;
-                statusBar.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+                mainBar.text = `${colorEmoji}${symbol}`;
+                mainBar.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
                 
                 const statusText = isActive ? 'Active' : (isEnabled ? 'Enabled' : 'Available');
-                statusBar.tooltip = `${statusText} [Global]: ${profile.name}\n\nClick to manage this profile`;
-                statusBar.command = {
+                mainBar.tooltip = `${statusText} [Global]: ${profile.name}\n\nClick to manage this profile`;
+                mainBar.command = {
                     command: 'multiScopeHighlighter.manageProfile',
                     title: 'Manage Profile',
                     arguments: [profile.name, isActive]
                 };
-                statusBar.show();
-                this.profileStatusBars.set(`global:${profile.name}`, statusBar);
+                mainBar.show();
+                this.profileStatusBars.set(`global:${profile.name}`, mainBar);
+                
+                // Create toggle button (appears immediately to the left)
+                const toggleBar = vscode.window.createStatusBarItem(
+                    vscode.StatusBarAlignment.Right,
+                    priority - 0.5
+                );
+                const toggleText = isActive ? '[A]' : (isEnabled ? '[E]' : '[·]');
+                toggleBar.text = toggleText;
+                toggleBar.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+                toggleBar.tooltip = isActive 
+                    ? `Active [Global]: ${profile.name}\n\nClick to disable`
+                    : (isEnabled 
+                        ? `Enabled [Global]: ${profile.name}\n\nClick to disable`
+                        : `Available [Global]: ${profile.name}\n\nClick to enable`);
+                toggleBar.command = {
+                    command: 'multiScopeHighlighter.quickToggleProfile',
+                    title: 'Toggle Profile',
+                    arguments: [profile.name, isActive, isEnabled]
+                };
+                toggleBar.show();
+                this.profileStatusBars.set(`global:${profile.name}:toggle`, toggleBar);
+                
+                priority -= 1;
             });
             
             // Show workspace profiles (they appear on the left)
@@ -124,22 +148,45 @@ export class StatusBarManager {
                 const colorEmoji = this.getColorEmoji(profile.color);
                 const symbol = isActive ? '◆' : (isEnabled ? '●' : '○');
                 
-                const statusBar = vscode.window.createStatusBarItem(
+                // Create main profile indicator (color + symbol)
+                const mainBar = vscode.window.createStatusBarItem(
                     vscode.StatusBarAlignment.Right,
-                    priority--
+                    priority
                 );
-                statusBar.text = `${colorEmoji}${symbol}`;
+                mainBar.text = `${colorEmoji}${symbol}`;
                 // No background color for workspace profiles (default)
                 
                 const statusText = isActive ? 'Active' : (isEnabled ? 'Enabled' : 'Available');
-                statusBar.tooltip = `${statusText} [Workspace]: ${profile.name}\n\nClick to manage this profile`;
-                statusBar.command = {
+                mainBar.tooltip = `${statusText} [Workspace]: ${profile.name}\n\nClick to manage this profile`;
+                mainBar.command = {
                     command: 'multiScopeHighlighter.manageProfile',
                     title: 'Manage Profile',
                     arguments: [profile.name, isActive]
                 };
-                statusBar.show();
-                this.profileStatusBars.set(`workspace:${profile.name}`, statusBar);
+                mainBar.show();
+                this.profileStatusBars.set(`workspace:${profile.name}`, mainBar);
+                
+                // Create toggle button (appears immediately to the left)
+                const toggleBar = vscode.window.createStatusBarItem(
+                    vscode.StatusBarAlignment.Right,
+                    priority - 0.5
+                );
+                const toggleText = isActive ? '[A]' : (isEnabled ? '[E]' : '[·]');
+                toggleBar.text = toggleText;
+                toggleBar.tooltip = isActive 
+                    ? `Active [Workspace]: ${profile.name}\n\nClick to disable`
+                    : (isEnabled 
+                        ? `Enabled [Workspace]: ${profile.name}\n\nClick to disable`
+                        : `Available [Workspace]: ${profile.name}\n\nClick to enable`);
+                toggleBar.command = {
+                    command: 'multiScopeHighlighter.quickToggleProfile',
+                    title: 'Toggle Profile',
+                    arguments: [profile.name, isActive, isEnabled]
+                };
+                toggleBar.show();
+                this.profileStatusBars.set(`workspace:${profile.name}:toggle`, toggleBar);
+                
+                priority -= 1;
             });
         } finally {
             this.isUpdating = false;
