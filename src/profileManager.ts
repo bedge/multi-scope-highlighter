@@ -508,6 +508,71 @@ export class ProfileManager {
     }
 
     /**
+     * Delete a specific profile by name (used by status bar menu)
+     */
+    async deleteSpecificProfile(profileName: string): Promise<void> {
+        // Try workspace path first
+        const workspacePath = this.getSavePath();
+        let filePath: string | undefined;
+        let scope: 'workspace' | 'global' = 'workspace';
+        
+        if (workspacePath) {
+            const workspaceFile = path.join(workspacePath, `${profileName}.json`);
+            if (fs.existsSync(workspaceFile)) {
+                filePath = workspaceFile;
+            }
+        }
+        
+        // If not found in workspace, try global path
+        if (!filePath) {
+            const globalPath = this.getGlobalSavePath();
+            const globalFile = path.join(globalPath, `${profileName}.json`);
+            if (fs.existsSync(globalFile)) {
+                filePath = globalFile;
+                scope = 'global';
+            }
+        }
+        
+        if (!filePath) {
+            vscode.window.showErrorMessage(`Profile '${profileName}' not found.`);
+            return;
+        }
+
+        try {
+            fs.unlinkSync(filePath);
+            
+            // Remove from enabled profiles set
+            this.state.enabledProfiles.delete(profileName);
+            
+            // Clear profile metadata if this was the active profile
+            if (this.state.currentProfileName === profileName || 
+                this.state.currentProfile?.name === profileName) {
+                this.state.currentProfileName = undefined;
+                this.state.currentProfile = null;
+            }
+            
+            // Remove all highlights belonging to this profile
+            const highlightsToRemove: string[] = [];
+            this.state.highlightMap.forEach((details, pattern) => {
+                if (details.source?.type === 'profile' && details.source.profileName === profileName) {
+                    highlightsToRemove.push(pattern);
+                }
+            });
+            
+            highlightsToRemove.forEach(pattern => {
+                this.state.highlightMap.delete(pattern);
+                this.state.decorationMap.delete(pattern);
+            });
+            
+            this.triggerUpdateCallback();
+            await this.statusBarUpdateCallback();
+            vscode.window.showInformationMessage(`Profile '${profileName}' [${scope}] deleted.`);
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to delete profile: ${error}`);
+        }
+    }
+
+    /**
      * Change the color of an existing profile
      */
     async changeProfileColor(profileName: string): Promise<void> {

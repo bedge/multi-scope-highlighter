@@ -192,6 +192,173 @@ export function activate(context: vscode.ExtensionContext) {
         return paletteItem ? (isLightTheme ? paletteItem.light : paletteItem.dark) : colorKey;
     }
 
+    // --- Helper: Show highlights for a specific profile ---
+    async function showProfileHighlights(profileName: string): Promise<void> {
+        // Filter highlights to only those from this profile
+        const profileHighlights = Array.from(state.highlightMap.entries())
+            .filter(([_, details]) => 
+                details.source?.type === 'profile' && details.source.profileName === profileName
+            );
+
+        if (profileHighlights.length === 0) {
+            vscode.window.showInformationMessage(`No highlights found in profile '${profileName}'.`);
+            return;
+        }
+
+        const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { pattern: string }>();
+        quickPick.title = `Profile: ${profileName}`;
+        quickPick.placeholder = "Click row to Color. Buttons: [Edit] [Mode] [Delete]";
+
+        let isEditing = false;
+
+        const getModeIcon = (mode: HighlightMode) => {
+            if (mode === 'regex') {
+                return new vscode.ThemeIcon('regex');
+            }
+            if (mode === 'whole') {
+                return new vscode.ThemeIcon('whole-word');
+            }
+            return new vscode.ThemeIcon('symbol-text');
+        };
+
+        const getModeLabel = getModeLabelUtil;
+
+        const refreshItems = () => {
+            const items = profileHighlights.map(([pattern, details]) => {
+                const visualColor = getColorValue(details.color);
+                const colorName = PALETTE[details.color] ? details.color : 'Custom';
+
+                return {
+                    label: pattern,
+                    description: `[${getModeLabel(details.mode)}] • ${colorName}`,
+                    pattern: pattern,
+                    iconPath: getIconUri(visualColor, 'rect'),
+                    buttons: [
+                        { iconPath: new vscode.ThemeIcon('edit'), tooltip: 'Edit Pattern' },
+                        { iconPath: getModeIcon(details.mode), tooltip: `Current: ${getModeLabel(details.mode)}. Click to Cycle.` },
+                        { iconPath: new vscode.ThemeIcon('trash'), tooltip: 'Delete' }
+                    ]
+                };
+            });
+            quickPick.items = items;
+        };
+
+        refreshItems();
+
+        quickPick.onDidChangeSelection(async (selection) => {
+            if (!selection[0]) {
+                return;
+            }
+            const pattern = selection[0].pattern;
+            isEditing = true;
+
+            const usedColors = new Set<string>();
+            state.highlightMap.forEach((details, key) => {
+                if (key !== pattern) {
+                    usedColors.add(details.color);
+                }
+            });
+
+            let availableKeys = PALETTE_KEYS.filter(key => !usedColors.has(key));
+            if (availableKeys.length === 0) {
+                availableKeys = PALETTE_KEYS;
+            }
+
+            const colorPicker = vscode.window.createQuickPick();
+            colorPicker.title = `Pick Color for '${pattern}'`;
+
+            colorPicker.items = availableKeys.map(key => ({
+                label: key,
+                iconPath: getIconUri(getColorValue(key), 'circle')
+            }));
+
+            colorPicker.onDidAccept(() => {
+                const selected = colorPicker.selectedItems[0];
+                if (selected) {
+                    const oldDetails = state.highlightMap.get(pattern);
+                    if (oldDetails) {
+                        highlightManager.addHighlight(pattern, { ...oldDetails, color: selected.label });
+                        profileManager.saveProfile(profileName);
+                    }
+                }
+                colorPicker.hide();
+            });
+
+            colorPicker.onDidHide(() => {
+                colorPicker.dispose();
+                isEditing = false;
+                refreshItems();
+                quickPick.show();
+            });
+
+            quickPick.hide();
+            colorPicker.show();
+            quickPick.selectedItems = [];
+        });
+
+        quickPick.onDidTriggerItemButton(async (e) => {
+            const pattern = (e.item as any).pattern;
+            const buttonIndex = (e.item as any).buttons.indexOf(e.button);
+
+            if (buttonIndex === 0) {
+                // Edit Pattern
+                isEditing = true;
+                const newPattern = await vscode.window.showInputBox({
+                    prompt: 'Enter new pattern',
+                    value: pattern,
+                    placeHolder: 'New pattern text'
+                });
+                isEditing = false;
+
+                if (newPattern && newPattern !== pattern) {
+                    const details = state.highlightMap.get(pattern);
+                    if (details) {
+                        highlightManager.removeHighlight(pattern);
+                        highlightManager.addHighlight(newPattern, details);
+                        await profileManager.saveProfile(profileName);
+                        refreshItems();
+                    }
+                }
+            } else if (buttonIndex === 1) {
+                // Cycle Mode
+                const details = state.highlightMap.get(pattern);
+                if (details) {
+                    const modes: HighlightMode[] = ['text', 'whole', 'regex'];
+                    const currentIndex = modes.indexOf(details.mode);
+                    const newMode = modes[(currentIndex + 1) % modes.length];
+                    highlightManager.addHighlight(pattern, { ...details, mode: newMode });
+                    await profileManager.saveProfile(profileName);
+                    refreshItems();
+                }
+            } else if (buttonIndex === 2) {
+                // Delete
+                highlightManager.removeHighlight(pattern);
+                await profileManager.saveProfile(profileName);
+                
+                // Refresh the filtered list
+                profileHighlights.splice(
+                    profileHighlights.findIndex(([p]) => p === pattern),
+                    1
+                );
+                
+                if (profileHighlights.length === 0) {
+                    vscode.window.showInformationMessage(`All highlights removed from profile '${profileName}'.`);
+                    quickPick.dispose();
+                } else {
+                    refreshItems();
+                }
+            }
+        });
+
+        quickPick.onDidHide(() => {
+            if (!isEditing) {
+                quickPick.dispose();
+            }
+        });
+
+        quickPick.show();
+    }
+
     // --- Commands ---
 
     const showMenuWithModifiers = vscode.commands.registerCommand('multiScopeHighlighter.showMenuWithModifiers', async () => {
@@ -1165,23 +1332,30 @@ export function activate(context: vscode.ExtensionContext) {
         await profileManager.disableProfile();
     });
 
-    const manageProfile = vscode.commands.registerCommand('multiScopeHighlighter.manageProfile', async (profileName: string, isActive: boolean) => {
+    const manageProfile = vscode.commands.registerCommand('multiScopeHighlighter.manageProfile', async (profileName: string, _isActive: boolean) => {
         const quickPick = vscode.window.createQuickPick();
         quickPick.title = `Manage Profile: ${profileName}`;
         quickPick.placeholder = 'Select an action (ESC to close)';
 
-        const isEnabled = state.enabledProfiles.has(profileName);
-        
         // Get current profile color
         const metadata = await profileManager.getProfileMetadata(profileName);
         const colorEmoji = getColorEmojiForHex(metadata?.color);
 
         const generateItems = () => {
+            // Check current active state dynamically
+            const isActive = state.activeProfileName === profileName;
+            const isEnabled = state.enabledProfiles.has(profileName);
+            
             const items = [
                 {
                     label: `${colorEmoji} Change Color`,
                     description: '',
                     detail: 'Update the profile\'s display color'
+                },
+                {
+                    label: '📝 View/Edit Highlights',
+                    description: '',
+                    detail: 'See and edit all highlights in this profile'
                 }
             ];
 
@@ -1209,6 +1383,13 @@ export function activate(context: vscode.ExtensionContext) {
                 });
             }
 
+            // Add Delete option at the end
+            items.push({
+                label: '🗑️ Delete Profile',
+                description: '',
+                detail: 'Permanently delete this profile'
+            });
+
             return items;
         };
 
@@ -1223,10 +1404,14 @@ export function activate(context: vscode.ExtensionContext) {
             quickPick.dispose();
 
             if (selected.label.includes('Activate')) {
-                await vscode.commands.executeCommand('multiScopeHighlighter.loadProfile');
+                await profileManager.activateProfile(`${profileName}.json`);
                 
             } else if (selected.label.includes('Change Color')) {
                 await profileManager.changeProfileColor(profileName);
+                
+            } else if (selected.label.includes('View/Edit Highlights')) {
+                // Show highlights filtered to this profile
+                await showProfileHighlights(profileName);
                 
             } else if (selected.label.includes('Enable')) {
                 // Enable this specific profile
@@ -1239,6 +1424,18 @@ export function activate(context: vscode.ExtensionContext) {
             } else if (selected.label.includes('Disable')) {
                 // Directly disable this specific profile
                 await profileManager.disableSpecificProfile(profileName);
+                
+            } else if (selected.label.includes('Delete Profile')) {
+                // Delete this profile with confirmation
+                const confirm = await vscode.window.showWarningMessage(
+                    `Delete profile '${profileName}'? This cannot be undone.`,
+                    { modal: true },
+                    'Delete'
+                );
+                
+                if (confirm === 'Delete') {
+                    await profileManager.deleteSpecificProfile(profileName);
+                }
             }
         });
 
