@@ -780,6 +780,49 @@ export class ProfileManager {
     }
 
     /**
+     * Load profile data from file (returns array of highlight items)
+     */
+    loadProfileData(profileName: string): SavedProfileItem[] | undefined {
+        // Try workspace path first
+        const workspacePath = this.getSavePath();
+        let filePath: string | undefined;
+        
+        if (workspacePath) {
+            const workspaceFile = path.join(workspacePath, `${profileName}.json`);
+            if (fs.existsSync(workspaceFile)) {
+                filePath = workspaceFile;
+            }
+        }
+        
+        // If not found in workspace, try global path
+        if (!filePath) {
+            const globalPath = this.getGlobalSavePath();
+            const globalFile = path.join(globalPath, `${profileName}.json`);
+            if (fs.existsSync(globalFile)) {
+                filePath = globalFile;
+            }
+        }
+        
+        if (!filePath) {
+            return undefined;
+        }
+
+        try {
+            const content = fs.readFileSync(filePath, 'utf8');
+            const parsed = JSON.parse(content);
+            
+            // Handle old format (array) vs new format (object with metadata)
+            if (Array.isArray(parsed)) {
+                return parsed;
+            } else {
+                return parsed.highlights || [];
+            }
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
      * Switch to a different profile
      * Shows QuickPick of available profiles and loads the selected one
      */

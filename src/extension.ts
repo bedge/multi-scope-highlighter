@@ -194,18 +194,21 @@ export function activate(context: vscode.ExtensionContext) {
 
     // --- Helper: Show highlights for a specific profile ---
     async function showProfileHighlights(profileName: string): Promise<void> {
-        // Filter highlights to only those from this profile
-        const profileHighlights = Array.from(state.highlightMap.entries())
-            .filter(([_, details]) => 
-                details.source?.type === 'profile' && details.source.profileName === profileName
-            );
+        // Load highlights directly from the profile file
+        const metadata = await profileManager.getProfileMetadata(profileName);
+        if (!metadata) {
+            vscode.window.showErrorMessage(`Profile '${profileName}' not found.`);
+            return;
+        }
 
-        if (profileHighlights.length === 0) {
+        // Get profile highlights from file
+        const profileData = await profileManager.loadProfileData(profileName);
+        if (!profileData || profileData.length === 0) {
             vscode.window.showInformationMessage(`No highlights found in profile '${profileName}'.`);
             return;
         }
 
-        const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { pattern: string }>();
+        const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { pattern: string; details: HighlightDetails }>();
         quickPick.title = `Profile: ${profileName}`;
         quickPick.placeholder = "Click row to Color. Buttons: [Edit] [Mode] [Delete]";
 
@@ -224,18 +227,28 @@ export function activate(context: vscode.ExtensionContext) {
         const getModeLabel = getModeLabelUtil;
 
         const refreshItems = () => {
-            const items = profileHighlights.map(([pattern, details]) => {
-                const visualColor = getColorValue(details.color);
-                const colorName = PALETTE[details.color] ? details.color : 'Custom';
+            const items = profileData.map(item => {
+                const pattern = item.pattern || item.word || '';
+                const mode = item.mode || 'text';
+                const visualColor = getColorValue(item.color);
+                const colorName = PALETTE[item.color] ? item.color : 'Custom';
+                
+                // Convert SavedProfileItem to HighlightDetails for storage
+                const details: HighlightDetails = {
+                    color: item.color,
+                    mode: mode,
+                    source: { type: 'profile', profileName }
+                };
 
                 return {
                     label: pattern,
-                    description: `[${getModeLabel(details.mode)}] • ${colorName}`,
+                    description: `[${getModeLabel(mode)}] • ${colorName}`,
                     pattern: pattern,
+                    details: details,
                     iconPath: getIconUri(visualColor, 'rect'),
                     buttons: [
                         { iconPath: new vscode.ThemeIcon('edit'), tooltip: 'Edit Pattern' },
-                        { iconPath: getModeIcon(details.mode), tooltip: `Current: ${getModeLabel(details.mode)}. Click to Cycle.` },
+                        { iconPath: getModeIcon(mode), tooltip: `Current: ${getModeLabel(mode)}. Click to Cycle.` },
                         { iconPath: new vscode.ThemeIcon('trash'), tooltip: 'Delete' }
                     ]
                 };
@@ -249,13 +262,15 @@ export function activate(context: vscode.ExtensionContext) {
             if (!selection[0]) {
                 return;
             }
-            const pattern = selection[0].pattern;
+            const item = selection[0] as any;
+            const pattern = item.pattern;
+            const details = item.details;
             isEditing = true;
 
             const usedColors = new Set<string>();
-            state.highlightMap.forEach((details, key) => {
-                if (key !== pattern) {
-                    usedColors.add(details.color);
+            profileData.forEach(item => {
+                if (item.pattern !== pattern) {
+                    usedColors.add(item.color);
                 }
             });
 
@@ -275,11 +290,14 @@ export function activate(context: vscode.ExtensionContext) {
             colorPicker.onDidAccept(() => {
                 const selected = colorPicker.selectedItems[0];
                 if (selected) {
-                    const oldDetails = state.highlightMap.get(pattern);
-                    if (oldDetails) {
-                        highlightManager.addHighlight(pattern, { ...oldDetails, color: selected.label });
-                        profileManager.saveProfile(profileName);
+                    // Update the color in profileData
+                    const dataItem = profileData.find(i => i.pattern === pattern);
+                    if (dataItem) {
+                        dataItem.color = selected.label;
                     }
+                    // Also update in state if loaded
+                    highlightManager.addHighlight(pattern, { ...details, color: selected.label });
+                    profileManager.saveProfile(profileName);
                 }
                 colorPicker.hide();
             });
@@ -297,8 +315,10 @@ export function activate(context: vscode.ExtensionContext) {
         });
 
         quickPick.onDidTriggerItemButton(async (e) => {
-            const pattern = (e.item as any).pattern;
-            const buttonIndex = (e.item as any).buttons.indexOf(e.button);
+            const item = e.item as any;
+            const pattern = item.pattern;
+            const details = item.details;
+            const buttonIndex = item.buttons.indexOf(e.button);
 
             if (buttonIndex === 0) {
                 // Edit Pattern
@@ -311,37 +331,45 @@ export function activate(context: vscode.ExtensionContext) {
                 isEditing = false;
 
                 if (newPattern && newPattern !== pattern) {
-                    const details = state.highlightMap.get(pattern);
-                    if (details) {
-                        highlightManager.removeHighlight(pattern);
-                        highlightManager.addHighlight(newPattern, details);
-                        await profileManager.saveProfile(profileName);
-                        refreshItems();
+                    // Update in profileData
+                    const dataItem = profileData.find(i => i.pattern === pattern);
+                    if (dataItem) {
+                        dataItem.pattern = newPattern;
                     }
-                }
-            } else if (buttonIndex === 1) {
-                // Cycle Mode
-                const details = state.highlightMap.get(pattern);
-                if (details) {
-                    const modes: HighlightMode[] = ['text', 'whole', 'regex'];
-                    const currentIndex = modes.indexOf(details.mode);
-                    const newMode = modes[(currentIndex + 1) % modes.length];
-                    highlightManager.addHighlight(pattern, { ...details, mode: newMode });
+                    // Update in state
+                    highlightManager.removeHighlight(pattern);
+                    highlightManager.addHighlight(newPattern, details);
                     await profileManager.saveProfile(profileName);
                     refreshItems();
                 }
+            } else if (buttonIndex === 1) {
+                // Cycle Mode
+                const modes: HighlightMode[] = ['text', 'whole', 'regex'];
+                const currentIndex = modes.indexOf(details.mode);
+                const newMode = modes[(currentIndex + 1) % modes.length];
+                
+                // Update in profileData
+                const dataItem = profileData.find(i => i.pattern === pattern);
+                if (dataItem) {
+                    dataItem.mode = newMode;
+                }
+                // Update in state
+                highlightManager.addHighlight(pattern, { ...details, mode: newMode });
+                await profileManager.saveProfile(profileName);
+                refreshItems();
             } else if (buttonIndex === 2) {
                 // Delete
                 highlightManager.removeHighlight(pattern);
+                
+                // Remove from profileData
+                const index = profileData.findIndex(i => i.pattern === pattern);
+                if (index !== -1) {
+                    profileData.splice(index, 1);
+                }
+                
                 await profileManager.saveProfile(profileName);
                 
-                // Refresh the filtered list
-                profileHighlights.splice(
-                    profileHighlights.findIndex(([p]) => p === pattern),
-                    1
-                );
-                
-                if (profileHighlights.length === 0) {
+                if (profileData.length === 0) {
                     vscode.window.showInformationMessage(`All highlights removed from profile '${profileName}'.`);
                     quickPick.dispose();
                 } else {
