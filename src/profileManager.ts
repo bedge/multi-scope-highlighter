@@ -415,38 +415,49 @@ export class ProfileManager {
      * Enable a profile (add its highlights without making it active)
      */
     async enableProfile(): Promise<void> {
-        const savePath = this.getSavePath();
-        if (!savePath) {
-            vscode.window.showErrorMessage('No workspace folder is open.');
-            return;
+        // Collect files from both workspace and global
+        const allFiles: Array<{ name: string; scope: 'workspace' | 'global' }> = [];
+        
+        // Get workspace profiles
+        const workspacePath = this.getSavePath();
+        if (workspacePath && fs.existsSync(workspacePath)) {
+            const workspaceFiles = fs.readdirSync(workspacePath).filter(f => f.endsWith('.json'));
+            workspaceFiles.forEach(f => allFiles.push({ name: f.replace('.json', ''), scope: 'workspace' }));
         }
-
-        const files = fs.readdirSync(savePath).filter(f => f.endsWith('.json'));
-        if (files.length === 0) {
+        
+        // Get global profiles
+        const globalPath = this.getGlobalSavePath();
+        if (fs.existsSync(globalPath)) {
+            const globalFiles = fs.readdirSync(globalPath).filter(f => f.endsWith('.json'));
+            globalFiles.forEach(f => allFiles.push({ name: f.replace('.json', ''), scope: 'global' }));
+        }
+        
+        if (allFiles.length === 0) {
             vscode.window.showInformationMessage('No saved profiles found.');
             return;
         }
 
         // Filter out already enabled profiles
-        const availableProfiles = files.filter(f => {
-            const name = f.replace('.json', '');
-            return !this.state.enabledProfiles.has(name);
-        });
+        const availableProfiles = allFiles.filter(p => !this.state.enabledProfiles.has(p.name));
 
         if (availableProfiles.length === 0) {
             vscode.window.showInformationMessage('All profiles are already enabled.');
             return;
         }
 
-        const selected = await vscode.window.showQuickPick(availableProfiles, {
-            placeHolder: 'Select a profile to enable'
-        });
+        const selected = await vscode.window.showQuickPick(
+            availableProfiles.map(p => ({
+                label: p.name,
+                description: p.scope === 'global' ? '🌐 Global' : '📁 Workspace'
+            })),
+            { placeHolder: 'Select a profile to enable' }
+        );
 
         if (!selected) {
             return;
         }
 
-        const profileName = selected.replace('.json', '');
+        const profileName = selected.label;
         
         // Add to enabled profiles set
         this.state.enabledProfiles.add(profileName);
@@ -807,13 +818,27 @@ export class ProfileManager {
      * Get profile metadata including color for a specific profile
      */
     getProfileMetadata(profileName: string): { color?: string } | undefined {
-        const savePath = this.getSavePath();
-        if (!savePath) {
-            return undefined;
+        // Try workspace path first
+        const workspacePath = this.getSavePath();
+        let filePath: string | undefined;
+        
+        if (workspacePath) {
+            const workspaceFile = path.join(workspacePath, `${profileName}.json`);
+            if (fs.existsSync(workspaceFile)) {
+                filePath = workspaceFile;
+            }
         }
-
-        const filePath = path.join(savePath, `${profileName}.json`);
-        if (!fs.existsSync(filePath)) {
+        
+        // If not found in workspace, try global path
+        if (!filePath) {
+            const globalPath = this.getGlobalSavePath();
+            const globalFile = path.join(globalPath, `${profileName}.json`);
+            if (fs.existsSync(globalFile)) {
+                filePath = globalFile;
+            }
+        }
+        
+        if (!filePath) {
             return undefined;
         }
 
