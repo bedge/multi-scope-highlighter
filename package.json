@@ -141,6 +141,14 @@
         "title": "Highlight: Load Template"
       },
       {
+        "command": "multiScopeHighlighter.enableProfile",
+        "title": "Highlight: Enable Profile"
+      },
+      {
+        "command": "multiScopeHighlighter.disableProfile",
+        "title": "Highlight: Disable Profile"
+      },
+      {
         "command": "multiScopeHighlighter.manageHighlights",
         "title": "Highlight: Manage Current Highlights"
       },

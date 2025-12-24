@@ -24,6 +24,7 @@ interface ProfileFileFormat {
         version: string;
         created?: string;
         modified?: string;
+        color?: string;  // User-assigned UI color
     };
     highlights: SavedProfileItem[];
 }
@@ -38,7 +39,7 @@ export class ProfileManager {
         private addHighlightCallback: (pattern: string, details?: Partial<HighlightDetails>) => void,
         private clearAllCallback: () => void,
         private triggerUpdateCallback: () => void,
-        private statusBarUpdateCallback: () => void
+        private statusBarUpdateCallback: () => void | Promise<void>
     ) {}
 
     /**
@@ -55,6 +56,102 @@ export class ProfileManager {
             fs.mkdirSync(savePath, { recursive: true });
         }
         return savePath;
+    }
+
+    /**
+     * Get the save path for global profiles
+     */
+    private getGlobalSavePath(): string {
+        const globalPath = path.join(this.context.globalStorageUri.fsPath, 'highlights');
+        if (!fs.existsSync(globalPath)) {
+            fs.mkdirSync(globalPath, { recursive: true });
+        }
+        return globalPath;
+    }
+
+    /**
+     * Get all profiles (both workspace and global)
+     */
+    async getAllProfiles(): Promise<ProfileMetadata[]> {
+        const profiles: ProfileMetadata[] = [];
+
+        // Get workspace profiles
+        const workspacePath = this.getSavePath();
+        if (workspacePath && fs.existsSync(workspacePath)) {
+            const files = fs.readdirSync(workspacePath).filter(f => f.endsWith('.json'));
+            for (const file of files) {
+                try {
+                    const filePath = path.join(workspacePath, file);
+                    const stats = fs.statSync(filePath);
+                    const content = fs.readFileSync(filePath, 'utf8');
+                    const data: ProfileFileFormat = JSON.parse(content);
+                    const profileName = file.replace('.json', '');
+                    
+                    profiles.push({
+                        name: profileName,
+                        path: filePath,
+                        scope: 'workspace',
+                        lastModified: stats.mtime,
+                        color: data.metadata?.color
+                    });
+                    console.log(`[getAllProfiles] Workspace profile ${profileName}: color=${data.metadata?.color}`);
+                } catch (error) {
+                    continue;
+                }
+            }
+        }
+
+        // Get global profiles
+        const globalPath = this.getGlobalSavePath();
+        if (fs.existsSync(globalPath)) {
+            const files = fs.readdirSync(globalPath).filter(f => f.endsWith('.json'));
+            for (const file of files) {
+                try {
+                    const filePath = path.join(globalPath, file);
+                    const stats = fs.statSync(filePath);
+                    const content = fs.readFileSync(filePath, 'utf8');
+                    const data: ProfileFileFormat = JSON.parse(content);
+                    const profileName = file.replace('.json', '');
+                    
+                    profiles.push({
+                        name: profileName,
+                        path: filePath,
+                        scope: 'global',
+                        lastModified: stats.mtime,
+                        color: data.metadata?.color
+                    });
+                    console.log(`[getAllProfiles] Global profile ${profileName}: color=${data.metadata?.color}`);
+                } catch (error) {
+                    continue;
+                }
+            }
+        }
+
+        return profiles;
+    }
+
+    /**
+     * Let user pick a color for profile identification
+     */
+    private async pickProfileColor(profileName: string): Promise<string | undefined> {
+        const colorOptions = [
+            { label: '🔴 Red', value: '#FF5555' },
+            { label: '🟠 Orange', value: '#FF9955' },
+            { label: '🟡 Yellow', value: '#FFFF55' },
+            { label: '🟢 Green', value: '#55FF55' },
+            { label: '🔵 Blue', value: '#5555FF' },
+            { label: '🟣 Purple', value: '#FF55FF' },
+            { label: '🟤 Brown', value: '#AA7744' },
+            { label: '⚫ Gray', value: '#AAAAAA' },
+            { label: '⚪ Skip', value: undefined }
+        ];
+
+        const selected = await vscode.window.showQuickPick(colorOptions, {
+            title: `Pick a color for profile "${profileName}"`,
+            placeHolder: 'This color will identify the profile in the status bar'
+        });
+
+        return selected?.value;
     }
 
     /**
@@ -83,8 +180,9 @@ export class ProfileManager {
         const filePath = path.join(savePath, `${profileName}.json`);
         const now = new Date().toISOString();
         
-        // Check if file exists to preserve created date
+        // Check if file exists to preserve created date and color
         let createdDate = now;
+        let existingColor: string | undefined;
         if (fs.existsSync(filePath)) {
             try {
                 const existingContent = fs.readFileSync(filePath, 'utf-8');
@@ -92,16 +190,23 @@ export class ProfileManager {
                 if (existingData.metadata?.created) {
                     createdDate = existingData.metadata.created;
                 }
+                if (existingData.metadata?.color) {
+                    existingColor = existingData.metadata.color;
+                }
             } catch (e) {
                 // Ignore parse errors, use new date
             }
         }
 
+        // Ask user to pick a color for this profile (or keep existing)
+        const profileColor = existingColor || await this.pickProfileColor(profileName);
+
         const exportData: ProfileFileFormat = {
             metadata: {
                 version: '0.0.19',
                 created: createdDate,
-                modified: now
+                modified: now,
+                color: profileColor
             },
             highlights: Array.from(this.state.highlightMap.entries()).map(([pattern, details]) => ({
                 pattern,
@@ -118,11 +223,12 @@ export class ProfileManager {
             name: profileName,
             path: filePath,
             scope: 'workspace',
-            lastModified: new Date(now)
+            lastModified: new Date(now),
+            color: profileColor
         };
         this.state.currentProfileName = profileName; // Legacy compatibility
 
-        this.statusBarUpdateCallback();
+        await this.statusBarUpdateCallback();
         vscode.window.showInformationMessage(`Profile saved as '${profileName}'`);
     }
 
@@ -175,11 +281,30 @@ export class ProfileManager {
             }
 
             const profileName = selected.replace('.json', '');
+            
+            // KEY CHANGE: Auto-enable the currently active profile before switching
+            if (this.state.activeProfileName && this.state.activeProfileName !== profileName) {
+                this.state.enabledProfiles.add(this.state.activeProfileName);
+            }
+            
+            // Clear all highlights (will be repopulated from enabled profiles + new active)
             this.clearAllCallback();
             
             // Set this as the active profile BEFORE adding highlights
             this.state.activeProfileName = profileName;
+            
+            // Ensure the new active profile is enabled
+            this.state.enabledProfiles.add(profileName);
 
+            // Re-enable all previously enabled profiles (restore their highlights)
+            for (const enabledName of this.state.enabledProfiles) {
+                if (enabledName !== profileName) {
+                    // Load highlights from enabled profiles as read-only
+                    await this.loadProfileHighlights(enabledName, true);
+                }
+            }
+
+            // Load the active profile highlights
             highlights.forEach(item => {
                 const pattern = item.pattern || item.word || '';
                 if (pattern) {
@@ -200,15 +325,290 @@ export class ProfileManager {
                 name: profileName,
                 path: filePath,
                 scope: 'workspace',
-                lastModified: metadata?.modified ? new Date(metadata.modified) : stats.mtime
+                lastModified: metadata?.modified ? new Date(metadata.modified) : stats.mtime,
+                color: metadata?.color
             };
             this.state.currentProfileName = profileName; // Legacy compatibility
 
             this.triggerUpdateCallback();
-            this.statusBarUpdateCallback();
+            await this.statusBarUpdateCallback();
             vscode.window.showInformationMessage(`Profile '${profileName}' activated.`);
         } catch (e) {
             vscode.window.showErrorMessage(`Failed to parse profile: ${e}`);
+        }
+    }
+
+    /**
+     * Load highlights from a profile without clearing existing highlights
+     * Used for enabling profiles while keeping others active
+     */
+    async loadProfileHighlights(profileName: string, readonly: boolean = false): Promise<void> {
+        const savePath = this.getSavePath();
+        if (!savePath) {
+            return;
+        }
+
+        const filePath = path.join(savePath, `${profileName}.json`);
+        if (!fs.existsSync(filePath)) {
+            vscode.window.showErrorMessage(`Profile '${profileName}' not found.`);
+            return;
+        }
+
+        try {
+            const content = fs.readFileSync(filePath, 'utf8');
+            const data: ProfileFileFormat = JSON.parse(content);
+            const highlights = data.highlights || [];
+
+            // Add highlights with source tracking (conflicts are silently ignored - first wins)
+            highlights.forEach(item => {
+                const pattern = item.pattern || item.word || '';
+                if (pattern) {
+                    const source = item.source || { type: 'profile', profileName };
+                    this.addHighlightCallback(pattern, { 
+                        color: item.color, 
+                        mode: item.mode || 'text',
+                        source 
+                    });
+                }
+            });
+        } catch (e) {
+            vscode.window.showErrorMessage(`Failed to load profile '${profileName}': ${e}`);
+        }
+    }
+
+    /**
+     * Enable a profile (add its highlights without making it active)
+     */
+    async enableProfile(): Promise<void> {
+        const savePath = this.getSavePath();
+        if (!savePath) {
+            vscode.window.showErrorMessage('No workspace folder is open.');
+            return;
+        }
+
+        const files = fs.readdirSync(savePath).filter(f => f.endsWith('.json'));
+        if (files.length === 0) {
+            vscode.window.showInformationMessage('No saved profiles found.');
+            return;
+        }
+
+        // Filter out already enabled profiles
+        const availableProfiles = files.filter(f => {
+            const name = f.replace('.json', '');
+            return !this.state.enabledProfiles.has(name);
+        });
+
+        if (availableProfiles.length === 0) {
+            vscode.window.showInformationMessage('All profiles are already enabled.');
+            return;
+        }
+
+        const selected = await vscode.window.showQuickPick(availableProfiles, {
+            placeHolder: 'Select a profile to enable'
+        });
+
+        if (!selected) {
+            return;
+        }
+
+        const profileName = selected.replace('.json', '');
+        
+        // Add to enabled profiles set
+        this.state.enabledProfiles.add(profileName);
+        
+        // Load highlights from this profile
+        await this.loadProfileHighlights(profileName, true);
+        
+        this.triggerUpdateCallback();
+        await this.statusBarUpdateCallback();
+        vscode.window.showInformationMessage(`Profile '${profileName}' enabled.`);
+    }
+
+    /**
+     * Disable a profile (remove its highlights)
+     */
+    async disableProfile(): Promise<void> {
+        if (this.state.enabledProfiles.size === 0) {
+            vscode.window.showInformationMessage('No profiles are currently enabled.');
+            return;
+        }
+
+        const enabledArray = Array.from(this.state.enabledProfiles);
+        const selected = await vscode.window.showQuickPick(enabledArray, {
+            placeHolder: 'Select a profile to disable'
+        });
+
+        if (!selected) {
+            return;
+        }
+
+        // Remove from enabled profiles set
+        this.state.enabledProfiles.delete(selected);
+        
+        // If disabling the active profile, clear active state
+        if (this.state.activeProfileName === selected) {
+            this.state.activeProfileName = '';
+            this.state.currentProfile = null;
+            this.state.currentProfileName = undefined;
+        }
+        
+        // Remove all highlights belonging to this profile
+        const highlightsToRemove: string[] = [];
+        this.state.highlightMap.forEach((details, pattern) => {
+            if (details.source?.type === 'profile' && details.source.profileName === selected) {
+                highlightsToRemove.push(pattern);
+            }
+        });
+        
+        highlightsToRemove.forEach(pattern => {
+            this.state.highlightMap.delete(pattern);
+            this.state.decorationMap.delete(pattern);
+        });
+        
+        this.triggerUpdateCallback();
+        await this.statusBarUpdateCallback();
+        vscode.window.showInformationMessage(`Profile '${selected}' disabled.`);
+    }
+
+    /**
+     * Disable a specific profile by name (used by status bar click)
+     */
+    async disableSpecificProfile(profileName: string): Promise<void> {
+        if (!this.state.enabledProfiles.has(profileName)) {
+            vscode.window.showInformationMessage(`Profile '${profileName}' is not currently enabled.`);
+            return;
+        }
+
+        // Remove from enabled profiles set
+        this.state.enabledProfiles.delete(profileName);
+        
+        // If disabling the active profile, clear active state
+        if (this.state.activeProfileName === profileName) {
+            this.state.activeProfileName = '';
+            this.state.currentProfile = null;
+            this.state.currentProfileName = undefined;
+        }
+        
+        // Remove all highlights belonging to this profile
+        const highlightsToRemove: string[] = [];
+        this.state.highlightMap.forEach((details, pattern) => {
+            if (details.source?.type === 'profile' && details.source.profileName === profileName) {
+                highlightsToRemove.push(pattern);
+            }
+        });
+        
+        highlightsToRemove.forEach(pattern => {
+            this.state.highlightMap.delete(pattern);
+            this.state.decorationMap.delete(pattern);
+        });
+        
+        this.triggerUpdateCallback();
+        await this.statusBarUpdateCallback();
+        vscode.window.showInformationMessage(`Profile '${profileName}' disabled.`);
+    }
+
+    /**
+     * Change the color of an existing profile
+     */
+    async changeProfileColor(profileName: string): Promise<void> {
+        // Try workspace path first
+        const workspacePath = this.getSavePath();
+        let filePath: string | undefined;
+        
+        if (workspacePath) {
+            const workspaceFile = path.join(workspacePath, `${profileName}.json`);
+            if (fs.existsSync(workspaceFile)) {
+                filePath = workspaceFile;
+            }
+        }
+        
+        // If not found in workspace, try global path
+        if (!filePath) {
+            const globalPath = this.getGlobalSavePath();
+            const globalFile = path.join(globalPath, `${profileName}.json`);
+            if (fs.existsSync(globalFile)) {
+                filePath = globalFile;
+            }
+        }
+        
+        if (!filePath) {
+            vscode.window.showErrorMessage(`Profile '${profileName}' not found.`);
+            return;
+        }
+
+        // Pick new color
+        const newColor = await this.pickProfileColor(profileName);
+        if (newColor === undefined) {
+            return; // User cancelled or chose skip
+        }
+
+        try {
+            // Read existing profile
+            const content = fs.readFileSync(filePath, 'utf8');
+            let data: ProfileFileFormat;
+            
+            const parsed = JSON.parse(content);
+            
+            // Handle old format (array) vs new format (object with metadata)
+            if (Array.isArray(parsed)) {
+                // Old format - convert to new format
+                console.log(`[changeProfileColor] Converting old array format to new format`);
+                data = {
+                    metadata: {
+                        version: '0.0.20',
+                        created: new Date().toISOString(),
+                        modified: new Date().toISOString()
+                    },
+                    highlights: parsed
+                };
+            } else {
+                data = parsed;
+            }
+            
+            console.log(`[changeProfileColor] Before: metadata=${JSON.stringify(data.metadata)}`);
+
+            // Update color in metadata
+            if (!data.metadata) {
+                data.metadata = {
+                    version: '0.0.20',
+                    created: new Date().toISOString(),
+                    modified: new Date().toISOString()
+                };
+            }
+            data.metadata.color = newColor;
+            data.metadata.modified = new Date().toISOString();
+            
+            console.log(`[changeProfileColor] After: metadata=${JSON.stringify(data.metadata)}`);
+
+            // Write back to file with explicit sync
+            const jsonContent = JSON.stringify(data, null, 2);
+            console.log(`[changeProfileColor] JSON to write: ${jsonContent.substring(0, 200)}`);
+            fs.writeFileSync(filePath, jsonContent, { encoding: 'utf8', flag: 'w' });
+            
+            // Force file system sync - open and close the file to ensure write is flushed
+            const fd = fs.openSync(filePath, 'r');
+            fs.closeSync(fd);
+            
+            console.log(`[changeProfileColor] Wrote color ${newColor} to ${filePath}`);
+            
+            // Verify the write by re-reading
+            const verifyContent = fs.readFileSync(filePath, 'utf8');
+            console.log(`[changeProfileColor] Read back: ${verifyContent.substring(0, 200)}`);
+            const verifyData: ProfileFileFormat = JSON.parse(verifyContent);
+            console.log(`[changeProfileColor] Verified color in file: ${verifyData.metadata?.color}`);
+
+            // Update current profile metadata if this is the active profile
+            if (this.state.currentProfile && this.state.currentProfile.name === profileName) {
+                this.state.currentProfile.color = newColor;
+            }
+
+            // Force status bar update to pick up new color
+            console.log(`[changeProfileColor] Calling statusBarUpdateCallback for ${profileName}`);
+            await this.statusBarUpdateCallback();
+            console.log(`[changeProfileColor] statusBarUpdateCallback completed for ${profileName}`);
+            vscode.window.showInformationMessage(`Profile '${profileName}' color updated.`);
+        } catch (e) {
+            vscode.window.showErrorMessage(`Failed to update profile color: ${e}`);
         }
     }
 
@@ -289,6 +689,29 @@ export class ProfileManager {
 
         // Sort by last modified (most recent first)
         return profiles.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+    }
+
+    /**
+     * Get profile metadata including color for a specific profile
+     */
+    getProfileMetadata(profileName: string): { color?: string } | undefined {
+        const savePath = this.getSavePath();
+        if (!savePath) {
+            return undefined;
+        }
+
+        const filePath = path.join(savePath, `${profileName}.json`);
+        if (!fs.existsSync(filePath)) {
+            return undefined;
+        }
+
+        try {
+            const content = fs.readFileSync(filePath, 'utf8');
+            const data: ProfileFileFormat = JSON.parse(content);
+            return { color: data.metadata?.color };
+        } catch {
+            return undefined;
+        }
     }
 
     /**

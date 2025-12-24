@@ -36,6 +36,7 @@ export interface ProfileMetadata {
     path: string;
     scope: 'workspace' | 'global';
     lastModified: Date;
+    color?: string;  // User-assigned color for UI identification
 }
 
 /** Decoration map type for managing VS Code decorations */

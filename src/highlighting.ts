@@ -240,15 +240,40 @@ export class HighlightManager {
     }
 
     /**
-     * Clear all highlights
+     * Clear all highlights (preserves enabled profiles, only clears active/manual)
      */
     clearAll(): void {
-        this.state.decorationMap.forEach(d => d.dispose());
-        this.state.decorationMap.clear();
-        this.state.highlightMap.clear();
-        this.state.colorIndex = 0;
+        const activeProfile = this.state.activeProfileName;
+        const highlightsToRemove: string[] = [];
+        
+        // Identify which highlights to remove
+        this.state.highlightMap.forEach((details, pattern) => {
+            const source = details.source;
+            
+            // Remove if:
+            // 1. Manual highlight (no source or source.type === 'manual')
+            // 2. Belongs to the active profile
+            if (!source || source.type === 'manual' || 
+                (source.type === 'profile' && source.profileName === activeProfile)) {
+                highlightsToRemove.push(pattern);
+            }
+        });
+        
+        // Remove identified highlights
+        highlightsToRemove.forEach(pattern => {
+            const decoration = this.state.decorationMap.get(pattern);
+            if (decoration) {
+                decoration.dispose();
+            }
+            this.state.decorationMap.delete(pattern);
+            this.state.highlightMap.delete(pattern);
+        });
+        
+        // Clear active profile state (but keep enabled profiles)
+        this.state.activeProfileName = '';
         this.state.currentProfileName = undefined;
         this.state.currentProfile = null;
+        
         this.statusBarUpdateCallback();
     }
 

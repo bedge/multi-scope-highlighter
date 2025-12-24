@@ -23,6 +23,7 @@ export class HighlightState {
     currentProfile: ProfileMetadata | null = null; // New metadata tracking
     currentProfileName?: string;
     activeProfileName?: string; // The profile being actively edited
+    enabledProfiles: Set<string> = new Set(); // Profiles currently visible (read-only overlays)
     highlightsDisabled: boolean = false; // Global toggle to hide all highlights
 
     // Performance optimization: debounce timer

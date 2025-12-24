@@ -110,24 +110,58 @@ function updateCursorContext(editor: vscode.TextEditor | undefined, state: Highl
     );
 }
 
+// --- Helper: Convert hex color to emoji ---
+function getColorEmojiForHex(hexColor?: string): string {
+    if (!hexColor) {
+        return '⚪';
+    }
+
+    const colorMap: { [key: string]: string } = {
+        '#FF5555': '🔴',
+        '#FF9955': '🟠',
+        '#FFFF55': '🟡',
+        '#55FF55': '🟢',
+        '#5555FF': '🔵',
+        '#FF55FF': '🟣',
+        '#AA7744': '🟤',
+        '#AAAAAA': '⚫'
+    };
+
+    return colorMap[hexColor.toUpperCase()] || '⚪';
+}
+
 export function activate(context: vscode.ExtensionContext) {
     console.log('Extension is activating...');
 
     // --- Initialize Components ---
     const state = new HighlightState();
-    const statusBar = new StatusBarManager(state);
-    const highlightManager = new HighlightManager(state, () => statusBar.update());
-    const profileManager = new ProfileManager(
+    
+    // Track pending removal confirmation for non-active profile highlights
+    let pendingRemovalPattern: string | null = null;
+    
+    // Create ProfileManager first (needed for statusBar callback)
+    let profileManager: ProfileManager;
+    
+    const statusBar = new StatusBarManager(
+        state, 
+        (profileName) => profileManager.getProfileMetadata(profileName),
+        () => profileManager.getAllProfiles()
+    );
+    
+    const highlightManager = new HighlightManager(state, async () => await statusBar.update());
+    
+    // Now create ProfileManager with all callbacks
+    profileManager = new ProfileManager(
         context,
         state,
         (pattern, details) => highlightManager.addHighlight(pattern, details),
         () => highlightManager.clearAll(),
         () => highlightManager.triggerUpdate(),
-        () => statusBar.update()
+        async () => await statusBar.update()
     );
 
     // Register status bar for disposal
-    context.subscriptions.push(statusBar.getStatusBarItem());
+    context.subscriptions.push(statusBar);
 
     // Initialize history with empty state
     state.pushHistory();
@@ -321,6 +355,16 @@ export function activate(context: vscode.ExtensionContext) {
                 detail: 'Quick switch to a different saved profile'
             },
             {
+                label: '✅ Enable Profile',
+                description: '',
+                detail: 'Enable a profile (add its highlights while keeping others)'
+            },
+            {
+                label: '❌ Disable Profile',
+                description: '',
+                detail: 'Disable an enabled profile (remove its highlights)'
+            },
+            {
                 label: '✨ New Profile',
                 description: '',
                 detail: 'Clear all highlights and start a new profile'
@@ -366,6 +410,14 @@ export function activate(context: vscode.ExtensionContext) {
             } else if (selected.label.includes('Switch Profile')) {
                 quickPick.dispose();
                 await vscode.commands.executeCommand('multiScopeHighlighter.switchProfile');
+
+            } else if (selected.label.includes('Enable Profile')) {
+                quickPick.dispose();
+                await vscode.commands.executeCommand('multiScopeHighlighter.enableProfile');
+
+            } else if (selected.label.includes('Disable Profile')) {
+                quickPick.dispose();
+                await vscode.commands.executeCommand('multiScopeHighlighter.disableProfile');
 
             } else if (selected.label.includes('New Profile')) {
                 quickPick.dispose();
@@ -457,13 +509,26 @@ export function activate(context: vscode.ExtensionContext) {
                     const isActiveProfile = !source || source.type === 'manual' || profileName === state.activeProfileName;
                     
                     if (!isActiveProfile) {
-                        // Non-active profile - show confirmation
-                        vscode.window.showWarningMessage(
-                            `'${pattern}' belongs to profile '${profileName}' (not active). Press Alt+Q again to confirm removal, or right-click to edit.`
-                        );
-                        return;
+                        // Non-active profile - check if this is the confirmation press
+                        if (pendingRemovalPattern === pattern) {
+                            // Confirmed - remove it
+                            pendingRemovalPattern = null;
+                            highlightManager.removeHighlight(pattern);
+                            vscode.window.showInformationMessage(`Removed highlight: "${pattern}" from profile '${profileName}'`);
+                            highlightManager.triggerUpdate();
+                            return;
+                        } else {
+                            // First press - set pending and show warning
+                            pendingRemovalPattern = pattern;
+                            vscode.window.showWarningMessage(
+                                `'${pattern}' belongs to profile '${profileName}' (not active). Press Alt+Q again to confirm removal, or right-click to edit.`
+                            );
+                            return;
+                        }
                     }
                     
+                    // Active profile - remove immediately
+                    pendingRemovalPattern = null;
                     highlightManager.removeHighlight(pattern);
                     vscode.window.showInformationMessage(`Removed highlight: "${pattern}"`);
                     highlightManager.triggerUpdate();
@@ -879,6 +944,8 @@ export function activate(context: vscode.ExtensionContext) {
             const source = details.source;
             const profileName = source?.profileName || 'manual';
             const isActiveProfile = !source || source.type === 'manual' || profileName === state.activeProfileName;
+            
+            const colorEmoji = getColorEmojiForHex(details.color);
 
             const quickPick = vscode.window.createQuickPick();
             quickPick.title = `Edit Highlight: '${pattern}'`;
@@ -893,7 +960,7 @@ export function activate(context: vscode.ExtensionContext) {
                     detail: 'Change the text pattern being highlighted'
                 },
                 {
-                    label: '🎨 Change Color',
+                    label: `${colorEmoji} Change Color`,
                     description: `Current: ${details.color}`,
                     detail: 'Pick a new color for this highlight'
                 },
@@ -1088,6 +1155,94 @@ export function activate(context: vscode.ExtensionContext) {
 
     const loadTemplate = vscode.commands.registerCommand('multiScopeHighlighter.loadTemplate', async () => {
         await profileManager.loadTemplate();
+    });
+
+    const enableProfile = vscode.commands.registerCommand('multiScopeHighlighter.enableProfile', async () => {
+        await profileManager.enableProfile();
+    });
+
+    const disableProfile = vscode.commands.registerCommand('multiScopeHighlighter.disableProfile', async () => {
+        await profileManager.disableProfile();
+    });
+
+    const manageProfile = vscode.commands.registerCommand('multiScopeHighlighter.manageProfile', async (profileName: string, isActive: boolean) => {
+        const quickPick = vscode.window.createQuickPick();
+        quickPick.title = `Manage Profile: ${profileName}`;
+        quickPick.placeholder = 'Select an action (ESC to close)';
+
+        const isEnabled = state.enabledProfiles.has(profileName);
+        
+        // Get current profile color
+        const metadata = await profileManager.getProfileMetadata(profileName);
+        const colorEmoji = getColorEmojiForHex(metadata?.color);
+
+        const generateItems = () => {
+            const items = [
+                {
+                    label: `${colorEmoji} Change Color`,
+                    description: '',
+                    detail: 'Update the profile\'s display color'
+                }
+            ];
+
+            // Only show Activate if not currently active
+            if (!isActive) {
+                items.unshift({
+                    label: '▶️ Activate',
+                    description: '',
+                    detail: 'Make this profile active for editing'
+                });
+            }
+
+            // Show Enable or Disable based on current state
+            if (isEnabled || isActive) {
+                items.push({
+                    label: '❌ Disable',
+                    description: '',
+                    detail: 'Remove this profile\'s highlights from view'
+                });
+            } else {
+                items.push({
+                    label: '✅ Enable',
+                    description: '',
+                    detail: 'Add this profile\'s highlights to the view'
+                });
+            }
+
+            return items;
+        };
+
+        quickPick.items = generateItems();
+
+        quickPick.onDidAccept(async () => {
+            const selected = quickPick.selectedItems[0];
+            if (!selected) {
+                return;
+            }
+
+            quickPick.dispose();
+
+            if (selected.label.includes('Activate')) {
+                await vscode.commands.executeCommand('multiScopeHighlighter.loadProfile');
+                
+            } else if (selected.label.includes('Change Color')) {
+                await profileManager.changeProfileColor(profileName);
+                
+            } else if (selected.label.includes('Enable')) {
+                // Enable this specific profile
+                state.enabledProfiles.add(profileName);
+                await profileManager.loadProfileHighlights(profileName, true);
+                highlightManager.triggerUpdate();
+                statusBar.update();
+                vscode.window.showInformationMessage(`Profile '${profileName}' enabled.`);
+                
+            } else if (selected.label.includes('Disable')) {
+                // Directly disable this specific profile
+                await profileManager.disableSpecificProfile(profileName);
+            }
+        });
+
+        quickPick.show();
     });
 
     const manageHighlights = vscode.commands.registerCommand('multiScopeHighlighter.manageHighlights', () => {
@@ -1320,6 +1475,8 @@ export function activate(context: vscode.ExtensionContext) {
     // Track cursor position to enable context menu
     vscode.window.onDidChangeTextEditorSelection(e => {
         updateCursorContext(e.textEditor, state);
+        // Reset pending removal when cursor moves
+        pendingRemovalPattern = null;
     }, null, context.subscriptions);
 
     // Also update when active editor changes
@@ -1376,6 +1533,9 @@ export function activate(context: vscode.ExtensionContext) {
         mergeProfile,
         duplicateProfile,
         loadTemplate,
+        enableProfile,
+        disableProfile,
+        manageProfile,
         manageHighlights,
         toggleStyle,
         setOpacity,
