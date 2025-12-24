@@ -461,6 +461,10 @@ export class ProfileManager {
         });
         
         highlightsToRemove.forEach(pattern => {
+            const decoration = this.state.decorationMap.get(pattern);
+            if (decoration) {
+                decoration.dispose();
+            }
             this.state.highlightMap.delete(pattern);
             this.state.decorationMap.delete(pattern);
         });
@@ -498,6 +502,10 @@ export class ProfileManager {
         });
         
         highlightsToRemove.forEach(pattern => {
+            const decoration = this.state.decorationMap.get(pattern);
+            if (decoration) {
+                decoration.dispose();
+            }
             this.state.highlightMap.delete(pattern);
             this.state.decorationMap.delete(pattern);
         });
@@ -560,6 +568,10 @@ export class ProfileManager {
             });
             
             highlightsToRemove.forEach(pattern => {
+                const decoration = this.state.decorationMap.get(pattern);
+                if (decoration) {
+                    decoration.dispose();
+                }
                 this.state.highlightMap.delete(pattern);
                 this.state.decorationMap.delete(pattern);
             });
