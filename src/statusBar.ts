@@ -63,6 +63,12 @@ export class StatusBarManager {
             
             // Update main status bar (count + rainbow icon)
             this.mainStatusBar.text = `🌈${countText}`;
+            this.mainStatusBar.command = this.state.highlightsDisabled 
+                ? 'multiScopeHighlighter.toggleDisableAll'
+                : 'multiScopeHighlighter.showMenu';
+            this.mainStatusBar.tooltip = this.state.highlightsDisabled
+                ? "Multi-Scope Highlighter (Disabled)\n\nClick to enable highlighting"
+                : "Multi-Scope Highlighter\n\nClick: Main Menu\nCtrl+Alt+Q: Profile Menu";
             this.mainStatusBar.show();
             
             // Dispose old profile status bars
@@ -76,11 +82,9 @@ export class StatusBarManager {
 
             const allProfiles = await this.getAllProfiles();
             
-            // Show all profiles when highlighting is enabled, only active/enabled when disabled
+            // Show all profiles when highlighting is enabled, hide all when globally disabled
             const profilesToShow = this.state.highlightsDisabled 
-                ? allProfiles.filter(p => 
-                    this.state.activeProfileName === p.name || this.state.enabledProfiles.has(p.name)
-                  )
+                ? []
                 : allProfiles;
             
             // Separate into workspace (local) and global profiles

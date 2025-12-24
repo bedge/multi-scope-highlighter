@@ -309,6 +309,7 @@ export class HighlightManager {
     toggleDisableAll(): void {
         this.state.highlightsDisabled = !this.state.highlightsDisabled;
         this.triggerUpdate();
+        this.statusBarUpdateCallback();
         
         const status = this.state.highlightsDisabled ? 'disabled' : 'enabled';
         vscode.window.showInformationMessage(`All highlights ${status}`);
