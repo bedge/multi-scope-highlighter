@@ -270,30 +270,61 @@ export class ProfileManager {
      * Activate a profile from file (load and set as active for editing)
      */
     async activateProfile(selectedFile?: string): Promise<void> {
-        const savePath = this.getSavePath();
-        if (!savePath) {
-            return;
+        // Collect files from both workspace and global
+        const allFiles: Array<{ name: string; scope: 'workspace' | 'global' }> = [];
+        
+        // Get workspace profiles
+        const workspacePath = this.getSavePath();
+        if (workspacePath && fs.existsSync(workspacePath)) {
+            const workspaceFiles = fs.readdirSync(workspacePath).filter(f => f.endsWith('.json'));
+            workspaceFiles.forEach(f => allFiles.push({ name: f, scope: 'workspace' }));
         }
-
-        if (!fs.existsSync(savePath)) {
+        
+        // Get global profiles
+        const globalPath = this.getGlobalSavePath();
+        if (fs.existsSync(globalPath)) {
+            const globalFiles = fs.readdirSync(globalPath).filter(f => f.endsWith('.json'));
+            globalFiles.forEach(f => allFiles.push({ name: f, scope: 'global' }));
+        }
+        
+        if (allFiles.length === 0) {
             vscode.window.showErrorMessage('No highlight profiles found.');
             return;
         }
 
-        const files = fs.readdirSync(savePath).filter(f => f.endsWith('.json'));
-        if (files.length === 0) {
-            return;
+        let selected: string;
+        let selectedScope: 'workspace' | 'global';
+        
+        if (selectedFile) {
+            selected = selectedFile;
+            // Determine scope for selectedFile
+            const found = allFiles.find(p => p.name === selectedFile);
+            selectedScope = found?.scope || 'workspace';
+        } else {
+            const choice = await vscode.window.showQuickPick(
+                allFiles.map(p => ({
+                    label: p.name.replace('.json', ''),
+                    description: p.scope === 'global' ? '🌐 Global' : '📁 Workspace',
+                    fileName: p.name,
+                    scope: p.scope
+                })),
+                { placeHolder: 'Select a profile to activate' }
+            );
+            
+            if (!choice) {
+                return;
+            }
+            selected = choice.fileName;
+            selectedScope = choice.scope;
         }
 
-        const selected = selectedFile || await vscode.window.showQuickPick(files, {
-            placeHolder: 'Select a profile to activate'
-        });
-
-        if (!selected) {
+        const basePath = selectedScope === 'workspace' ? workspacePath : globalPath;
+        if (!basePath) {
+            vscode.window.showErrorMessage('Could not determine profile path.');
             return;
         }
-
-        const filePath = path.join(savePath, selected);
+        
+        const filePath = path.join(basePath, selected);
         const content = fs.readFileSync(filePath, 'utf-8');
 
         try {
@@ -378,13 +409,27 @@ export class ProfileManager {
      * Used for enabling profiles while keeping others active
      */
     async loadProfileHighlights(profileName: string, readonly: boolean = false): Promise<void> {
-        const savePath = this.getSavePath();
-        if (!savePath) {
-            return;
+        // Try workspace path first
+        const workspacePath = this.getSavePath();
+        let filePath: string | undefined;
+        
+        if (workspacePath) {
+            const workspaceFile = path.join(workspacePath, `${profileName}.json`);
+            if (fs.existsSync(workspaceFile)) {
+                filePath = workspaceFile;
+            }
         }
-
-        const filePath = path.join(savePath, `${profileName}.json`);
-        if (!fs.existsSync(filePath)) {
+        
+        // If not found in workspace, try global path
+        if (!filePath) {
+            const globalPath = this.getGlobalSavePath();
+            const globalFile = path.join(globalPath, `${profileName}.json`);
+            if (fs.existsSync(globalFile)) {
+                filePath = globalFile;
+            }
+        }
+        
+        if (!filePath) {
             vscode.window.showErrorMessage(`Profile '${profileName}' not found.`);
             return;
         }

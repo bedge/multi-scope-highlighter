@@ -51,7 +51,7 @@ export class HighlightState {
     pushHistory(): void {
         // Remove any redo history if we're not at the end
         if (this.historyIndex < this.historyStack.length - 1) {
-            this.historyStack = this.historyStack.slice(0, this.historyIndex + 1);
+            this.historyStack = this.historyStack .slice(0, this.historyIndex + 1);
         }
 
         // Add current state to history
