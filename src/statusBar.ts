@@ -111,7 +111,7 @@ export class StatusBarManager {
                 mainBar.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
                 
                 const statusText = isActive ? 'Active' : (isEnabled ? 'Enabled' : 'Available');
-                mainBar.tooltip = `${statusText} [Global]: ${profile.name}\n\nClick to manage this profile`;
+                mainBar.tooltip = `${statusText} [Global]: ${profile.name}\n[MANAGE]`;
                 mainBar.command = {
                     command: 'multiScopeHighlighter.manageProfile',
                     title: 'Manage Profile',
@@ -129,10 +129,10 @@ export class StatusBarManager {
                 toggleBar.text = toggleText;
                 toggleBar.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
                 toggleBar.tooltip = isActive 
-                    ? `Active [Global]: ${profile.name}\n\nClick to disable`
+                    ? `Active [Global]: ${profile.name}\n[DISABLE]`
                     : (isEnabled 
-                        ? `Enabled [Global]: ${profile.name}\n\nClick to disable`
-                        : `Available [Global]: ${profile.name}\n\nClick to enable`);
+                        ? `Enabled [Global]: ${profile.name}\n[DISABLE]`
+                        : `Available [Global]: ${profile.name}\n[ENABLE]`);
                 toggleBar.command = {
                     command: 'multiScopeHighlighter.quickToggleProfile',
                     title: 'Toggle Profile',
@@ -161,7 +161,7 @@ export class StatusBarManager {
                 // No background color for workspace profiles (default)
                 
                 const statusText = isActive ? 'Active' : (isEnabled ? 'Enabled' : 'Available');
-                mainBar.tooltip = `${statusText} [Workspace]: ${profile.name}\n\nClick to manage this profile`;
+                mainBar.tooltip = `${statusText} [Workspace]: ${profile.name}\n[MANAGE]`;
                 mainBar.command = {
                     command: 'multiScopeHighlighter.manageProfile',
                     title: 'Manage Profile',
@@ -178,10 +178,10 @@ export class StatusBarManager {
                 const toggleText = isActive ? '[A]' : (isEnabled ? '[E]' : '[·]');
                 toggleBar.text = toggleText;
                 toggleBar.tooltip = isActive 
-                    ? `Active [Workspace]: ${profile.name}\n\nClick to disable`
+                    ? `Active [Workspace]: ${profile.name}\n[DISABLE]`
                     : (isEnabled 
-                        ? `Enabled [Workspace]: ${profile.name}\n\nClick to disable`
-                        : `Available [Workspace]: ${profile.name}\n\nClick to enable`);
+                        ? `Enabled [Workspace]: ${profile.name}\n[DISABLE]`
+                        : `Available [Workspace]: ${profile.name}\n[ENABLE]`);
                 toggleBar.command = {
                     command: 'multiScopeHighlighter.quickToggleProfile',
                     title: 'Toggle Profile',

@@ -60,7 +60,7 @@
         },
         {
           "command": "multiScopeHighlighter.manageHighlights",
-          "group": "navigation",
+          "group": "multiScopeHighlighter@0",
           "when": "!editorHasSelection"
         },
         {
