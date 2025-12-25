@@ -418,11 +418,11 @@ export function activate(context: vscode.ExtensionContext) {
             }
 
             return [
-                // { 
-                //     label: '📂 Load Profile', 
-                //     description: '',
-                //     detail: 'Load highlights from a saved JSON file'
-                // },                
+                { 
+                    label: '📂 Load Profile', 
+                    description: '',
+                    detail: 'Load highlights from a saved JSON file'
+                },                
                 {
                     // TODO: If there are 0 active, suggest <shortcut> to add
                     label: '🖍️ Manage Highlights',
