@@ -139,25 +139,26 @@ export function activate(context: vscode.ExtensionContext) {
     // Track pending removal confirmation for non-active profile highlights
     let pendingRemovalPattern: string | null = null;
     
-    // Create ProfileManager first (needed for statusBar callback)
-    let profileManager: ProfileManager;
-    
-    const statusBar = new StatusBarManager(
-        state, 
-        (profileName) => profileManager.getProfileMetadata(profileName),
-        () => profileManager.getAllProfiles()
-    );
+    // Create StatusBarManager placeholder (will be initialized later)
+    let statusBar: StatusBarManager;
     
     const highlightManager = new HighlightManager(state, async () => await statusBar.update());
     
-    // Now create ProfileManager with all callbacks
-    profileManager = new ProfileManager(
+    // Create ProfileManager first
+    const profileManager = new ProfileManager(
         context,
         state,
         (pattern, details) => highlightManager.addHighlight(pattern, details),
         () => highlightManager.clearAll(),
         () => highlightManager.triggerUpdate(),
         async () => await statusBar.update()
+    );
+    
+    // Now create StatusBarManager with profileManager available
+    statusBar = new StatusBarManager(
+        state, 
+        (profileName) => profileManager.getProfileMetadata(profileName),
+        () => profileManager.getAllProfiles()
     );
 
     // Register status bar for disposal
