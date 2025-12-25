@@ -25,7 +25,7 @@ export class HighlightState {
     activeProfileName?: string; // The profile being actively edited
     activeProfileModified: boolean = false; // Track if active profile has unsaved changes
     enabledProfiles: Set<string> = new Set(); // Profiles currently visible (read-only overlays)
-    highlightsDisabled: boolean = false; // Global toggle to hide all highlights
+    highlightsDisabled: boolean = true; // Global toggle to hide all highlights
 
     // Performance optimization: debounce timer
     updateTimeout?: NodeJS.Timeout;
