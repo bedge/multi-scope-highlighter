@@ -277,6 +277,105 @@ export class ProfileManager {
     }
 
     /**
+     * Get the file path for a profile
+     */
+    getProfilePath(profileName: string): string | undefined {
+        // Try workspace path first
+        const workspacePath = this.getSavePath();
+        if (workspacePath) {
+            const workspaceFile = path.join(workspacePath, `${profileName}.json`);
+            if (fs.existsSync(workspaceFile)) {
+                return workspaceFile;
+            }
+        }
+        
+        // Try global path
+        const globalPath = this.getGlobalSavePath();
+        const globalFile = path.join(globalPath, `${profileName}.json`);
+        if (fs.existsSync(globalFile)) {
+            return globalFile;
+        }
+        
+        return undefined;
+    }
+
+    /**
+     * Open the raw profile JSON file for editing
+     */
+    async openRawProfile(profileName: string): Promise<void> {
+        const filePath = this.getProfilePath(profileName);
+        if (!filePath) {
+            vscode.window.showErrorMessage(`Profile '${profileName}' not found.`);
+            return;
+        }
+
+        // Open the file in the editor
+        const document = await vscode.workspace.openTextDocument(filePath);
+        await vscode.window.showTextDocument(document);
+
+        // Set up file watcher for this profile
+        const watcher = vscode.workspace.createFileSystemWatcher(filePath);
+        
+        // Watch for changes
+        const changeHandler = async (uri: vscode.Uri) => {
+            debugLog(`[openRawProfile] Profile file changed: ${profileName}`);
+            
+            // Check if this profile is currently active or enabled
+            const isActive = this.state.activeProfileName === profileName;
+            const isEnabled = this.state.enabledProfiles.has(profileName);
+            
+            if (isActive || isEnabled) {
+                // Show notification and ask if user wants to reload
+                const choice = await vscode.window.showInformationMessage(
+                    `Profile '${profileName}' has been modified. Reload?`,
+                    'Reload',
+                    'Ignore'
+                );
+                
+                if (choice === 'Reload') {
+                    // Reload the profile
+                    if (isActive) {
+                        // If active, reload as active
+                        await this.activateProfile(`${profileName}.json`);
+                    } else {
+                        // If just enabled, reload the highlights
+                        // First remove all highlights from this profile
+                        const toRemove: string[] = [];
+                        for (const [pattern, details] of this.state.highlightMap.entries()) {
+                            if (details.source?.profileName === profileName) {
+                                toRemove.push(pattern);
+                            }
+                        }
+                        toRemove.forEach(pattern => {
+                            this.state.decorationMap.get(pattern)?.dispose();
+                            this.state.decorationMap.delete(pattern);
+                            this.state.highlightMap.delete(pattern);
+                        });
+                        
+                        // Reload highlights from the file
+                        await this.loadProfileHighlights(profileName, true);
+                        this.triggerUpdateCallback();
+                    }
+                    
+                    await this.statusBarUpdateCallback();
+                    vscode.window.showInformationMessage(`Profile '${profileName}' reloaded.`);
+                }
+            }
+        };
+        
+        watcher.onDidChange(changeHandler);
+        
+        // Clean up watcher when document is closed
+        const closeHandler = vscode.workspace.onDidCloseTextDocument((doc) => {
+            if (doc.uri.fsPath === filePath) {
+                debugLog(`[openRawProfile] Disposing watcher for: ${profileName}`);
+                watcher.dispose();
+                closeHandler.dispose();
+            }
+        });
+    }
+
+    /**
      * Activate a profile from file (load and set as active for editing)
      */
     async activateProfile(selectedFile?: string): Promise<void> {

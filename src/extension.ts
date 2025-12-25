@@ -1397,6 +1397,11 @@ export function activate(context: vscode.ExtensionContext) {
                     label: '📝 View/Edit Highlights',
                     description: '',
                     detail: 'See and edit all highlights in this profile'
+                },
+                {
+                    label: '📄 Open Raw JSON',
+                    description: '',
+                    detail: 'Edit the profile file directly in JSON format'
                 }
             ];
 
@@ -1465,6 +1470,10 @@ export function activate(context: vscode.ExtensionContext) {
             } else if (selected.label.includes('View/Edit Highlights')) {
                 // Show highlights filtered to this profile
                 await showProfileHighlights(profileName);
+                
+            } else if (selected.label.includes('Open Raw JSON')) {
+                // Open the raw JSON file for editing
+                await profileManager.openRawProfile(profileName);
                 
             } else if (selected.label.includes('Enable')) {
                 // Enable this specific profile
