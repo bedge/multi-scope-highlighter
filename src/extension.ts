@@ -417,12 +417,7 @@ export function activate(context: vscode.ExtensionContext) {
                 styleLabel = 'Hybrid';
             }
 
-            return [
-                { 
-                    label: '📂 Load Profile', 
-                    description: '',
-                    detail: 'Load highlights from a saved JSON file'
-                },                
+            return [            
                 {
                     // TODO: If there are 0 active, suggest <shortcut> to add
                     label: '🖍️ Manage Highlights',
@@ -451,11 +446,11 @@ export function activate(context: vscode.ExtensionContext) {
                 },
                 {
                     label: '📁 Profiles',
-                    description: state.currentProfileName ? `Current: ${state.currentProfileName}` : 'No profile loaded',
+                    description: state.activeProfileName ? `Current: ${state.activeProfileName}` : 'No profile loaded',
                     detail: 'Manage saved highlight profiles'
                 },
                 {
-                    label: '⌨️ Keyboard Shortcuts',
+                    label: '⌨️ Keyboard Shortcuts',  
                     description: '',
                     detail: 'View all keybindings for this extension'
                 },
@@ -543,7 +538,7 @@ export function activate(context: vscode.ExtensionContext) {
         const generateItems = () => [
             {
                 label: '💾 Save Profile',
-                description: state.currentProfileName ? `(${state.currentProfileName})` : '',
+                description: state.activeProfileName ? `(${state.activeProfileName})` : '',
                 detail: 'Save current highlights to a JSON file'
             },
             {
