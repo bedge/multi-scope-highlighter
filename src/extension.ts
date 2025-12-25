@@ -1501,7 +1501,7 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     const manageHighlights = vscode.commands.registerCommand('multiScopeHighlighter.manageHighlights', () => {
-        return new Promise<void>((resolve) => {
+        return new Promise<void>(async (resolve) => {
             if (state.highlightMap.size === 0) {
                 vscode.window.showInformationMessage('No active highlights to manage.');
                 resolve();
@@ -1534,27 +1534,81 @@ export function activate(context: vscode.ExtensionContext) {
 
             const getModeLabel = getModeLabelUtil;
 
-            const refreshItems = () => {
-                const items = Array.from(state.highlightMap.entries()).map(([pattern, details]) => {
-                    const visualColor = getColorValue(details.color);
-                    const colorName = PALETTE[details.color] ? details.color : 'Custom';
-
-                    return {
-                        label: pattern,
-                        description: `[${getModeLabel(details.mode)}] • ${colorName}`,
-                        pattern: pattern,
-                        iconPath: getIconUri(visualColor, 'rect'),
-                        buttons: [
-                            { iconPath: new vscode.ThemeIcon('edit'), tooltip: 'Edit Pattern' },
-                            { iconPath: getModeIcon(details.mode), tooltip: `Current: ${getModeLabel(details.mode)}. Click to Cycle.` },
-                            { iconPath: new vscode.ThemeIcon('trash'), tooltip: 'Delete' }
-                        ]
-                    };
+            const refreshItems = async () => {
+                // Group highlights by profile
+                const byProfile = new Map<string, Array<[string, HighlightDetails]>>();
+                
+                for (const [pattern, details] of state.highlightMap.entries()) {
+                    const source = details.source;
+                    const profileName = source?.profileName || 'Manual';
+                    
+                    if (!byProfile.has(profileName)) {
+                        byProfile.set(profileName, []);
+                    }
+                    byProfile.get(profileName)!.push([pattern, details]);
+                }
+                
+                // Get all profiles metadata for scope info
+                const allProfiles = await profileManager.getAllProfiles();
+                const profileMetadata = new Map(allProfiles.map(p => [p.name, p]));
+                
+                // Sort profiles: active first, then enabled, then manual, then alphabetically
+                const sortedProfiles = Array.from(byProfile.keys()).sort((a, b) => {
+                    if (a === 'Manual') return 1;
+                    if (b === 'Manual') return -1;
+                    
+                    const aIsActive = state.activeProfileName === a;
+                    const bIsActive = state.activeProfileName === b;
+                    if (aIsActive && !bIsActive) return -1;
+                    if (!aIsActive && bIsActive) return 1;
+                    
+                    const aIsEnabled = state.enabledProfiles.has(a);
+                    const bIsEnabled = state.enabledProfiles.has(b);
+                    if (aIsEnabled && !bIsEnabled) return -1;
+                    if (!aIsEnabled && bIsEnabled) return 1;
+                    
+                    return a.localeCompare(b);
                 });
+                
+                // Build items grouped by profile
+                const items: Array<vscode.QuickPickItem & { pattern: string }> = [];
+                
+                for (const profileName of sortedProfiles) {
+                    const highlights = byProfile.get(profileName)!;
+                    
+                    // Get profile scope icon
+                    let scopeIcon = '';
+                    if (profileName !== 'Manual') {
+                        const metadata = profileMetadata.get(profileName);
+                        scopeIcon = metadata?.scope === 'global' ? '🌐 ' : '📁 ';
+                    }
+                    
+                    // Add items for this profile
+                    highlights.forEach(([pattern, details]) => {
+                        const visualColor = getColorValue(details.color);
+                        const colorName = PALETTE[details.color] ? details.color : 'Custom';
+                        
+                        // Show profile info for each item
+                        const profileLabel = profileName !== 'Manual' ? `${scopeIcon}${profileName}` : '';
+                        
+                        items.push({
+                            label: pattern,
+                            description: `[${getModeLabel(details.mode)}] • ${colorName} ${profileLabel ? `• ${profileLabel}` : ''}`,
+                            pattern: pattern,
+                            iconPath: getIconUri(visualColor, 'rect'),
+                            buttons: [
+                                { iconPath: new vscode.ThemeIcon('edit'), tooltip: 'Edit Pattern' },
+                                { iconPath: getModeIcon(details.mode), tooltip: `Current: ${getModeLabel(details.mode)}. Click to Cycle.` },
+                                { iconPath: new vscode.ThemeIcon('trash'), tooltip: 'Delete' }
+                            ]
+                        });
+                    });
+                }
+                
                 quickPick.items = items;
             };
 
-            refreshItems();
+            await refreshItems();
 
             quickPick.onDidChangeSelection(async (selection) => {
                 if (!selection[0]) {
@@ -1595,10 +1649,10 @@ export function activate(context: vscode.ExtensionContext) {
                     colorPicker.hide();
                 });
 
-                colorPicker.onDidHide(() => {
+                colorPicker.onDidHide(async () => {
                     colorPicker.dispose();
                     isEditing = false;
-                    refreshItems();
+                    await refreshItems();
                     quickPick.show(); // return to manager
                 });
 
@@ -1617,7 +1671,7 @@ export function activate(context: vscode.ExtensionContext) {
 
                 if (tooltip === 'Delete') {
                     highlightManager.removeHighlight(pattern);
-                    refreshItems();
+                    await refreshItems();
                     highlightManager.triggerUpdate();
                     if (state.highlightMap.size === 0) {
                         isEditing = false;
@@ -1628,7 +1682,7 @@ export function activate(context: vscode.ExtensionContext) {
                 } else if (tooltip.includes('Click to Cycle')) {
                     const newMode = getNextMode(details.mode);
                     highlightManager.addHighlight(pattern, { ...details, mode: newMode });
-                    refreshItems();
+                    await refreshItems();
                     highlightManager.triggerUpdate();
 
                 } else if (tooltip === 'Edit Pattern') {
@@ -1672,7 +1726,7 @@ export function activate(context: vscode.ExtensionContext) {
                         }
                     }
                     isEditing = false;
-                    refreshItems();
+                    await refreshItems();
                     quickPick.show();
                 }
             });
