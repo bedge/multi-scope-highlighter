@@ -418,7 +418,13 @@ export function activate(context: vscode.ExtensionContext) {
             }
 
             return [
+                // { 
+                //     label: '📂 Load Profile', 
+                //     description: '',
+                //     detail: 'Load highlights from a saved JSON file'
+                // },                
                 {
+                    // TODO: If there are 0 active, suggest <shortcut> to add
                     label: '🖍️ Manage Highlights',
                     description: `${state.highlightMap.size} active`,
                     detail: 'Edit text, change colors, or delete specific highlights'
