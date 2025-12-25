@@ -6,6 +6,16 @@ import { HighlightDetails, ProfileMetadata } from './types';
 import { HighlightMode } from './utils';
 
 /**
+ * Conditional debug logging - only logs when debugLogging setting is enabled
+ */
+function debugLog(...args: any[]): void {
+    const config = vscode.workspace.getConfiguration('multiScopeHighlighter');
+    if (config.get<boolean>('debugLogging', false)) {
+        debugLog(...args);
+    }
+}
+
+/**
  * Saved profile item structure (supports legacy formats)
  */
 interface SavedProfileItem {
@@ -94,7 +104,7 @@ export class ProfileManager {
                         lastModified: stats.mtime,
                         color: data.metadata?.color
                     });
-                    console.log(`[getAllProfiles] Workspace profile ${profileName}: color=${data.metadata?.color}`);
+                    debugLog(`[getAllProfiles] Workspace profile ${profileName}: color=${data.metadata?.color}`);
                 } catch (error) {
                     continue;
                 }
@@ -120,7 +130,7 @@ export class ProfileManager {
                         lastModified: stats.mtime,
                         color: data.metadata?.color
                     });
-                    console.log(`[getAllProfiles] Global profile ${profileName}: color=${data.metadata?.color}`);
+                    debugLog(`[getAllProfiles] Global profile ${profileName}: color=${data.metadata?.color}`);
                 } catch (error) {
                     continue;
                 }
@@ -347,8 +357,13 @@ export class ProfileManager {
 
             const profileName = selected.replace('.json', '');
             
+            debugLog(`[activateProfile] Activating profile: ${profileName}`);
+            debugLog(`[activateProfile] Current activeProfileName:`, this.state.activeProfileName);
+            debugLog(`[activateProfile] Current enabledProfiles before changes:`, Array.from(this.state.enabledProfiles));
+            
             // KEY CHANGE: Auto-enable the currently active profile before switching
             if (this.state.activeProfileName && this.state.activeProfileName !== profileName) {
+                debugLog(`[activateProfile] Adding previous active profile '${this.state.activeProfileName}' to enabledProfiles`);
                 this.state.enabledProfiles.add(this.state.activeProfileName);
             }
             
@@ -359,22 +374,28 @@ export class ProfileManager {
             this.state.activeProfileName = profileName;
             
             // Ensure the new active profile is enabled
+            debugLog(`[activateProfile] Adding new active profile '${profileName}' to enabledProfiles`);
             this.state.enabledProfiles.add(profileName);
+
+            debugLog(`[activateProfile] Current enabledProfiles after changes:`, Array.from(this.state.enabledProfiles));
 
             // Re-enable all previously enabled profiles (restore their highlights)
             for (const enabledName of this.state.enabledProfiles) {
                 if (enabledName !== profileName) {
+                    debugLog(`[activateProfile] Re-loading enabled profile: ${enabledName}`);
                     // Load highlights from enabled profiles as read-only
                     await this.loadProfileHighlights(enabledName, true);
                 }
             }
 
+            debugLog(`[activateProfile] Loading active profile highlights for: ${profileName}`);
             // Load the active profile highlights
             highlights.forEach(item => {
                 const pattern = item.pattern || item.word || '';
                 if (pattern) {
-                    // Load with source from file, or assign profile source for legacy files
-                    const source = item.source || { type: 'profile', profileName };
+                    // Always override source to match the profile being loaded
+                    // The file may contain stale source info if highlights were copied from another profile
+                    const source = { type: 'profile' as const, profileName };
                     this.addHighlightCallback(pattern, { 
                         color: item.color, 
                         mode: item.mode || 'text',
@@ -409,6 +430,8 @@ export class ProfileManager {
      * Used for enabling profiles while keeping others active
      */
     async loadProfileHighlights(profileName: string, readonly: boolean = false): Promise<void> {
+        debugLog(`[loadProfileHighlights] Loading profile: ${profileName}`);
+        
         // Try workspace path first
         const workspacePath = this.getSavePath();
         let filePath: string | undefined;
@@ -417,6 +440,7 @@ export class ProfileManager {
             const workspaceFile = path.join(workspacePath, `${profileName}.json`);
             if (fs.existsSync(workspaceFile)) {
                 filePath = workspaceFile;
+                debugLog(`[loadProfileHighlights] Found in workspace: ${workspaceFile}`);
             }
         }
         
@@ -426,10 +450,12 @@ export class ProfileManager {
             const globalFile = path.join(globalPath, `${profileName}.json`);
             if (fs.existsSync(globalFile)) {
                 filePath = globalFile;
+                debugLog(`[loadProfileHighlights] Found in global: ${globalFile}`);
             }
         }
         
         if (!filePath) {
+            console.error(`[loadProfileHighlights] Profile '${profileName}' not found`);
             vscode.window.showErrorMessage(`Profile '${profileName}' not found.`);
             return;
         }
@@ -439,11 +465,17 @@ export class ProfileManager {
             const data: ProfileFileFormat = JSON.parse(content);
             const highlights = data.highlights || [];
 
-            // Add highlights with source tracking (conflicts are silently ignored - first wins)
-            highlights.forEach(item => {
+            debugLog(`[loadProfileHighlights] Loading ${highlights.length} highlights from profile '${profileName}'`);
+            
+            // Add highlights with source tracking
+            // IMPORTANT: Always use the profileName parameter, not item.source.profileName
+            // The file may contain stale source info if highlights were copied from another profile
+            highlights.forEach((item, index) => {
                 const pattern = item.pattern || item.word || '';
                 if (pattern) {
-                    const source = item.source || { type: 'profile', profileName };
+                    // Always override source to match the profile being loaded
+                    const source = { type: 'profile' as const, profileName };
+                    debugLog(`[loadProfileHighlights] Adding highlight #${index + 1}: pattern="${pattern}", source.profileName="${source.profileName}"`);
                     this.addHighlightCallback(pattern, { 
                         color: item.color, 
                         mode: item.mode || 'text',
@@ -451,7 +483,10 @@ export class ProfileManager {
                     });
                 }
             });
+            
+            debugLog(`[loadProfileHighlights] Completed loading profile '${profileName}'`);
         } catch (e) {
+            console.error(`[loadProfileHighlights] Failed to load profile '${profileName}':`, e);
             vscode.window.showErrorMessage(`Failed to load profile '${profileName}': ${e}`);
         }
     }
@@ -504,8 +539,13 @@ export class ProfileManager {
 
         const profileName = selected.label;
         
+        debugLog(`[enableProfile] Enabling profile: ${profileName}`);
+        debugLog(`[enableProfile] Current enabledProfiles before add:`, Array.from(this.state.enabledProfiles));
+        
         // Add to enabled profiles set
         this.state.enabledProfiles.add(profileName);
+        
+        debugLog(`[enableProfile] Current enabledProfiles after add:`, Array.from(this.state.enabledProfiles));
         
         // Load highlights from this profile
         await this.loadProfileHighlights(profileName, true);
@@ -720,7 +760,7 @@ export class ProfileManager {
             // Handle old format (array) vs new format (object with metadata)
             if (Array.isArray(parsed)) {
                 // Old format - convert to new format
-                console.log(`[changeProfileColor] Converting old array format to new format`);
+                debugLog(`[changeProfileColor] Converting old array format to new format`);
                 data = {
                     metadata: {
                         version: '0.0.20',
@@ -733,7 +773,7 @@ export class ProfileManager {
                 data = parsed;
             }
             
-            console.log(`[changeProfileColor] Before: metadata=${JSON.stringify(data.metadata)}`);
+            debugLog(`[changeProfileColor] Before: metadata=${JSON.stringify(data.metadata)}`);
 
             // Update color in metadata
             if (!data.metadata) {
@@ -746,24 +786,24 @@ export class ProfileManager {
             data.metadata.color = newColor;
             data.metadata.modified = new Date().toISOString();
             
-            console.log(`[changeProfileColor] After: metadata=${JSON.stringify(data.metadata)}`);
+            debugLog(`[changeProfileColor] After: metadata=${JSON.stringify(data.metadata)}`);
 
             // Write back to file with explicit sync
             const jsonContent = JSON.stringify(data, null, 2);
-            console.log(`[changeProfileColor] JSON to write: ${jsonContent.substring(0, 200)}`);
+            debugLog(`[changeProfileColor] JSON to write: ${jsonContent.substring(0, 200)}`);
             fs.writeFileSync(filePath, jsonContent, { encoding: 'utf8', flag: 'w' });
             
             // Force file system sync - open and close the file to ensure write is flushed
             const fd = fs.openSync(filePath, 'r');
             fs.closeSync(fd);
             
-            console.log(`[changeProfileColor] Wrote color ${newColor} to ${filePath}`);
+            debugLog(`[changeProfileColor] Wrote color ${newColor} to ${filePath}`);
             
             // Verify the write by re-reading
             const verifyContent = fs.readFileSync(filePath, 'utf8');
-            console.log(`[changeProfileColor] Read back: ${verifyContent.substring(0, 200)}`);
+            debugLog(`[changeProfileColor] Read back: ${verifyContent.substring(0, 200)}`);
             const verifyData: ProfileFileFormat = JSON.parse(verifyContent);
-            console.log(`[changeProfileColor] Verified color in file: ${verifyData.metadata?.color}`);
+            debugLog(`[changeProfileColor] Verified color in file: ${verifyData.metadata?.color}`);
 
             // Update current profile metadata if this is the active profile
             if (this.state.currentProfile && this.state.currentProfile.name === profileName) {
@@ -771,9 +811,9 @@ export class ProfileManager {
             }
 
             // Force status bar update to pick up new color
-            console.log(`[changeProfileColor] Calling statusBarUpdateCallback for ${profileName}`);
+            debugLog(`[changeProfileColor] Calling statusBarUpdateCallback for ${profileName}`);
             await this.statusBarUpdateCallback();
-            console.log(`[changeProfileColor] statusBarUpdateCallback completed for ${profileName}`);
+            debugLog(`[changeProfileColor] statusBarUpdateCallback completed for ${profileName}`);
             vscode.window.showInformationMessage(`Profile '${profileName}' color updated.`);
         } catch (e) {
             vscode.window.showErrorMessage(`Failed to update profile color: ${e}`);

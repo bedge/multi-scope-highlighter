@@ -17,6 +17,16 @@ import {
     createHighlightRegex
 } from './utils';
 
+/**
+ * Conditional debug logging - only logs when debugLogging setting is enabled
+ */
+function debugLog(...args: any[]): void {
+    const config = vscode.workspace.getConfiguration('multiScopeHighlighter');
+    if (config.get<boolean>('debugLogging', false)) {
+        console.log(...args);
+    }
+}
+
 // --- Global Context: Track highlight under cursor ---
 let cursorHighlightContext: {
     pattern: string;
@@ -1458,7 +1468,10 @@ export function activate(context: vscode.ExtensionContext) {
                 
             } else if (selected.label.includes('Enable')) {
                 // Enable this specific profile
+                debugLog(`[manageProfile] Enabling profile: ${profileName}`);
+                debugLog(`[manageProfile] Current enabledProfiles before add:`, Array.from(state.enabledProfiles));
                 state.enabledProfiles.add(profileName);
+                debugLog(`[manageProfile] Current enabledProfiles after add:`, Array.from(state.enabledProfiles));
                 await profileManager.loadProfileHighlights(profileName, true);
                 highlightManager.triggerUpdate();
                 statusBar.update();
@@ -1491,7 +1504,10 @@ export function activate(context: vscode.ExtensionContext) {
             await profileManager.disableSpecificProfile(profileName);
         } else {
             // Enable the profile
+            debugLog(`[quickToggleProfile] Enabling profile: ${profileName}`);
+            debugLog(`[quickToggleProfile] Current enabledProfiles before add:`, Array.from(state.enabledProfiles));
             state.enabledProfiles.add(profileName);
+            debugLog(`[quickToggleProfile] Current enabledProfiles after add:`, Array.from(state.enabledProfiles));
             await profileManager.loadProfileHighlights(profileName, true);
             
             highlightManager.triggerUpdate();
