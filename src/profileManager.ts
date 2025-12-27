@@ -4,16 +4,7 @@ import * as path from 'path';
 import { HighlightState } from './state';
 import { HighlightDetails, ProfileMetadata } from './types';
 import { HighlightMode } from './utils';
-
-/**
- * Conditional debug logging - only logs when debugLogging setting is enabled
- */
-function debugLog(...args: any[]): void {
-    const config = vscode.workspace.getConfiguration('multiScopeHighlighter');
-    if (config.get<boolean>('debugLogging', false)) {
-        debugLog(...args);
-    }
-}
+import { debugLog } from './utils';
 
 /**
  * Saved profile item structure (supports legacy formats)
@@ -72,7 +63,7 @@ export class ProfileManager {
      * Get the save path for global profiles
      */
     private getGlobalSavePath(): string {
-        const globalPath = path.join(this.context.globalStorageUri.fsPath, 'highlights');
+        const globalPath = path.join(this.context.globalStorageUri.fsPath, 'profiles');
         if (!fs.existsSync(globalPath)) {
             fs.mkdirSync(globalPath, { recursive: true });
         }

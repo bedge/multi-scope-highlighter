@@ -1,5 +1,18 @@
 // Utility functions extracted for testability
 
+import * as vscode from 'vscode';
+
+/**
+ * Shared debug logging helper
+ * Conditional debug logging - only logs when debugLogging setting is enabled
+ */
+export function debugLog(...args: any[]): void {
+    const config = vscode.workspace.getConfiguration('multiScopeHighlighter');
+    if (config.get<boolean>('debugLogging', false)) {
+        console.log(...args);
+    }
+}
+
 export type HighlightMode = 'text' | 'whole' | 'regex';
 
 export interface AdaptiveColor {

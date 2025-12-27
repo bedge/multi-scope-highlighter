@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { HighlightState } from './state';
+import { debugLog } from './utils';
 
 /**
  * Manages the status bar items that display highlight count and profile indicators
@@ -47,18 +48,21 @@ export class StatusBarManager {
         return colorMap[hexColor.toUpperCase()] || '⚪';
     }
 
-    /**
+/**
      * Update status bar items to show highlight count and clickable profile indicators
      */
     async update(): Promise<void> {
         // Prevent concurrent updates
         if (this.isUpdating) {
+            debugLog('[StatusBar] Update skipped: Already updating');
             return;
         }
         this.isUpdating = true;
 
         try {
             const count = this.state.highlightMap.size;
+            debugLog(`[StatusBar] Starting update. Active highlights: ${count}. Disabled? ${this.state.highlightsDisabled}`);
+            
             const countText = count > 0 ? ` ${count}` : '';
             
             // Update main status bar (count + rainbow icon)
@@ -77,10 +81,12 @@ export class StatusBarManager {
             
             // Get all profiles if available
             if (!this.getAllProfiles) {
+                debugLog('[StatusBar] getAllProfiles callback not defined');
                 return;
             }
 
             const allProfiles = await this.getAllProfiles();
+            debugLog(`[StatusBar] Raw profiles fetched: ${allProfiles.length}`, allProfiles.map(p => `${p.name} (${p.scope})`));
             
             // Show all profiles when highlighting is enabled, hide all when globally disabled
             const profilesToShow = this.state.highlightsDisabled 
@@ -91,11 +97,15 @@ export class StatusBarManager {
             const workspaceProfiles = profilesToShow.filter(p => p.scope === 'workspace');
             const globalProfiles = profilesToShow.filter(p => p.scope === 'global');
             
+            debugLog(`[StatusBar] Render list -> Global: ${globalProfiles.length}, Workspace: ${workspaceProfiles.length}`);
+
             // Priority counter - global profiles on the right (higher priority), workspace on the left (lower priority)
             let priority = 99;
             
             // Show global profiles first (they appear on the right)
             globalProfiles.forEach(profile => {
+                debugLog(`[StatusBar] Rendering GLOBAL profile: ${profile.name}`);
+                
                 const isActive = this.state.activeProfileName === profile.name;
                 const isEnabled = this.state.enabledProfiles.has(profile.name);
                 
@@ -108,7 +118,11 @@ export class StatusBarManager {
                     priority
                 );
                 mainBar.text = `${colorEmoji}${symbol}`;
-                mainBar.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+                
+                // --- DEBUGGING COLOR ASSIGNMENT ---
+                mainBar.backgroundColor = undefined; 
+                mainBar.color = new vscode.ThemeColor('statusBarItem.remoteBackground');
+                // ----------------------------------
                 
                 const statusText = isActive ? 'Active' : (isEnabled ? 'Enabled' : 'Available');
                 mainBar.tooltip = `${statusText} [Global]: ${profile.name}\n[MANAGE]`;
@@ -116,7 +130,7 @@ export class StatusBarManager {
                     command: 'multiScopeHighlighter.manageProfile',
                     title: 'Manage Profile',
                     arguments: [profile.name, isActive]
-                };
+                };                
                 mainBar.show();
                 this.profileStatusBars.set(`global:${profile.name}`, mainBar);
                 
@@ -127,7 +141,12 @@ export class StatusBarManager {
                 );
                 const toggleText = isActive ? '[A]' : (isEnabled ? '[E]' : '[·]');
                 toggleBar.text = toggleText;
-                toggleBar.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+
+                // --- DEBUGGING COLOR ASSIGNMENT ---
+                toggleBar.backgroundColor = undefined;
+                toggleBar.color = new vscode.ThemeColor('statusBarItem.remoteBackground');
+                // ----------------------------------
+
                 toggleBar.tooltip = isActive 
                     ? `Active [Global]: ${profile.name}\n[DISABLE]`
                     : (isEnabled 
@@ -137,7 +156,7 @@ export class StatusBarManager {
                     command: 'multiScopeHighlighter.quickToggleProfile',
                     title: 'Toggle Profile',
                     arguments: [profile.name, isActive, isEnabled]
-                };
+                };                
                 toggleBar.show();
                 this.profileStatusBars.set(`global:${profile.name}:toggle`, toggleBar);
                 
@@ -146,7 +165,9 @@ export class StatusBarManager {
             
             // Show workspace profiles (they appear on the left)
             workspaceProfiles.forEach(profile => {
-                const isActive = this.state.activeProfileName === profile.name;
+                // debugLog(`[StatusBar] Rendering WORKSPACE profile: ${profile.name}`);
+                // ... (existing workspace logic)
+                 const isActive = this.state.activeProfileName === profile.name;
                 const isEnabled = this.state.enabledProfiles.has(profile.name);
                 
                 const colorEmoji = this.getColorEmoji(profile.color);
@@ -192,6 +213,9 @@ export class StatusBarManager {
                 
                 priority -= 1;
             });
+
+        } catch (e) {
+            console.error('[StatusBar] Error during update:', e);
         } finally {
             this.isUpdating = false;
         }

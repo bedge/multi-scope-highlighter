@@ -16,16 +16,7 @@ import {
     isNoiseWord as isNoiseWordUtil,
     createHighlightRegex
 } from './utils';
-
-/**
- * Conditional debug logging - only logs when debugLogging setting is enabled
- */
-function debugLog(...args: any[]): void {
-    const config = vscode.workspace.getConfiguration('multiScopeHighlighter');
-    if (config.get<boolean>('debugLogging', false)) {
-        console.log(...args);
-    }
-}
+import { debugLog } from './utils';
 
 // --- Global Context: Track highlight under cursor ---
 let cursorHighlightContext: {

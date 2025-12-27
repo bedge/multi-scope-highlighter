@@ -61,8 +61,6 @@ The `auto` mode works better for low `opacity` settings:
 
 ![Opacity 75%](./images/opacity75.png)
 
-
-
 ### ⚙️ Advanced Management
 
 **Use the "Manage Highlights" command to fine-tune your setup without restarting:**
@@ -76,7 +74,6 @@ The `auto` mode works better for low `opacity` settings:
 - **Color Picker:** Manually reassign colors, with a smart filter that hides colors already in use.
 
 ![Context matching](./images/context-matching.png)
-
 
 ### Profile Persistence & Context Menu Editing
 
@@ -213,7 +210,7 @@ When using `Shift+Alt+Q` to highlight multiple words from a selection, common pu
 
 ### Profile Commands
 
-- `Highlight: Profile Menu` - Quick access to all profile operations (Ctrl+Alt+Q / Cmd+Option+Q)
+- `Highlight: Profile Menu` - Quick access to all profile operations (Ctrl+Alt+Q)
 - `Highlight: Save Profile` - Save current highlights to a named profile
 - `Highlight: Load Profile` - Load highlights from a saved profile
 - `Highlight: Switch Profile` - Quick switch between profiles with last modified timestamps
