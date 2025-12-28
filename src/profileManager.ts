@@ -158,10 +158,61 @@ export class ProfileManager {
     /**
      * Save current highlights as a profile
      */
-    async saveProfile(name?: string): Promise<void> {
+    async saveProfile(name?: string, skipConfirmation: boolean = false): Promise<void> {
+        debugLog('[saveProfile] === START ===');
+        debugLog('[saveProfile] name parameter:', name);
+        debugLog('[saveProfile] skipConfirmation:', skipConfirmation);
+        debugLog('[saveProfile] activeProfileName:', this.state.activeProfileName);
+        debugLog('[saveProfile] Total highlights in map:', this.state.highlightMap.size);
+        
         if (this.state.highlightMap.size === 0) {
             vscode.window.showWarningMessage('No highlights to save.');
             return;
+        }
+
+        // Log all current highlights and their sources
+        debugLog('[saveProfile] Current highlights:');
+        this.state.highlightMap.forEach((details, pattern) => {
+            debugLog(`  - "${pattern}": source=${JSON.stringify(details.source)}, color=${details.color}, mode=${details.mode}`);
+        });
+
+        // Filter highlights: only save those from active profile or manual
+        // Exclude highlights from enabled (read-only) profiles
+        const activeProfile = this.state.activeProfileName;
+        const highlightsToSave = Array.from(this.state.highlightMap.entries()).filter(([pattern, details]) => {
+            const source = details.source;
+            const include = (!source || source.type === 'manual') || 
+                          (source.type === 'profile' && source.profileName === activeProfile);
+            debugLog(`[saveProfile] Filter "${pattern}": source=${JSON.stringify(source)}, include=${include}`);
+            return include;
+        });
+
+        debugLog('[saveProfile] Filtered highlights to save:', highlightsToSave.length);
+
+        if (highlightsToSave.length === 0) {
+            vscode.window.showWarningMessage('No highlights to save. All current highlights belong to enabled (read-only) profiles.');
+            return;
+        }
+
+        // Warn if some highlights will be excluded
+        const excludedCount = this.state.highlightMap.size - highlightsToSave.length;
+        debugLog('[saveProfile] Excluded count:', excludedCount);
+        if (excludedCount > 0 && !skipConfirmation) {
+            const message = activeProfile 
+                ? `Saving ${highlightsToSave.length} highlight(s) from active profile '${activeProfile}' and manual highlights. ${excludedCount} highlight(s) from enabled profiles will not be saved.`
+                : `Saving ${highlightsToSave.length} manual highlight(s). ${excludedCount} highlight(s) from enabled profiles will not be saved.`;
+            
+            const proceed = await vscode.window.showInformationMessage(
+                message,
+                { modal: true },
+                'Continue',
+                'Cancel'
+            );
+            
+            if (proceed !== 'Continue') {
+                debugLog('[saveProfile] User cancelled save');
+                return;
+            }
         }
 
         // Ask for scope if no name provided (new save)
@@ -242,29 +293,81 @@ export class ProfileManager {
                 modified: now,
                 color: profileColor
             },
-            highlights: Array.from(this.state.highlightMap.entries()).map(([pattern, details]) => ({
+            highlights: highlightsToSave.map(([pattern, details]) => ({
                 pattern,
                 color: details.color,
                 mode: details.mode,
-                source: details.source  // NEW: Include source
+                source: details.source  // Include source
             }))
         };
 
+        debugLog('[saveProfile] Writing to file:', filePath);
+        debugLog('[saveProfile] Export data:', JSON.stringify(exportData, null, 2));
         fs.writeFileSync(filePath, JSON.stringify(exportData, null, 2));
 
         // Update state with profile metadata
         this.state.currentProfile = {
             name: profileName,
             path: filePath,
-            scope: 'workspace',
+            scope: scope,
             lastModified: new Date(now),
             color: profileColor
         };
         this.state.currentProfileName = profileName; // Legacy compatibility
+        this.state.activeProfileName = profileName; // Set as active profile
+        this.state.enabledProfiles.add(profileName); // Add to enabled profiles so it can be disabled
         this.state.activeProfileModified = false; // Reset modified flag after save
+        
+        debugLog('[saveProfile] Before updating sources - activeProfileName:', this.state.activeProfileName);
+        debugLog('[saveProfile] Added to enabledProfiles:', profileName);
+        
+        // Update the source of all saved highlights to point to this profile
+        // This ensures they are recognized as belonging to this profile in future saves
+        highlightsToSave.forEach(([pattern, details]) => {
+            const existingDetails = this.state.highlightMap.get(pattern);
+            if (existingDetails) {
+                const oldSource = JSON.stringify(existingDetails.source);
+                existingDetails.source = {
+                    type: 'profile',
+                    profileName: profileName
+                };
+                debugLog(`[saveProfile] Updated source for "${pattern}": ${oldSource} -> ${JSON.stringify(existingDetails.source)}`);
+            }
+        });
 
         await this.statusBarUpdateCallback();
-        vscode.window.showInformationMessage(`Profile saved as '${profileName}'`);
+        debugLog('[saveProfile] === END ===');
+        vscode.window.showInformationMessage(`Profile saved as '${profileName}' (${highlightsToSave.length} highlight${highlightsToSave.length !== 1 ? 's' : ''})`);
+    }
+
+    /**
+     * Save current active profile under a new name (Save As)
+     */
+    async saveProfileAs(): Promise<void> {
+        if (this.state.highlightMap.size === 0) {
+            vscode.window.showWarningMessage('No highlights to save.');
+            return;
+        }
+
+        const activeProfile = this.state.activeProfileName;
+        if (!activeProfile) {
+            vscode.window.showWarningMessage('No active profile. Use "Save Profile" instead.');
+            return;
+        }
+
+        // Ask for new name
+        const newName = await vscode.window.showInputBox({
+            prompt: `Save '${activeProfile}' as a new profile`,
+            placeHolder: 'Enter new profile name',
+            value: `${activeProfile}-copy`
+        });
+
+        if (!newName) {
+            return;
+        }
+
+        // Save with the new name (without confirmation since user explicitly chose Save As)
+        await this.saveProfile(newName, true);
     }
 
     /**

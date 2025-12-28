@@ -7,7 +7,8 @@ import {
     applyOpacity,
     createHighlightRegex,
     getNextColorKey as getNextColorKeyUtil,
-    parseNoiseWords
+    parseNoiseWords,
+    debugLog
 } from './utils';
 
 /**
@@ -179,6 +180,8 @@ export class HighlightManager {
             profileName: this.state.activeProfileName
         } as any;
 
+        debugLog(`[addHighlight] Adding "${pattern}": activeProfileName=${this.state.activeProfileName}, source=${JSON.stringify(source)}`);
+
         // Cache the Regex immediately if needed
         const cachedRegex = createHighlightRegex(pattern, mode);
         if ((mode === 'regex' || mode === 'whole') && cachedRegex === null) {
@@ -224,9 +227,12 @@ export class HighlightManager {
         this.state.decorationMap.set(pattern, decorationType);
         this.state.highlightMap.set(pattern, { color: colorKey, mode, cachedRegex, source });
         
+        debugLog(`[addHighlight] Successfully added "${pattern}" to highlightMap`);
+        
         // Mark active profile as modified if this highlight belongs to it
         if (source.type === 'profile' && source.profileName === this.state.activeProfileName) {
             this.state.activeProfileModified = true;
+            debugLog(`[addHighlight] Marked profile '${this.state.activeProfileName}' as modified`);
         }
         
         this.statusBarUpdateCallback();

@@ -536,58 +536,82 @@ export function activate(context: vscode.ExtensionContext) {
         quickPick.title = 'Profile Management';
         quickPick.placeholder = 'Select a profile action (ESC to close)';
 
-        const generateItems = () => [
-            {
-                label: '💾 Save Profile',
-                description: state.activeProfileName ? `(${state.activeProfileName})` : '',
-                detail: 'Save current highlights to a JSON file'
-            },
-            {
-                label: '📂 Load Profile',
-                description: '',
-                detail: 'Load highlights from a saved JSON file'
-            },
-            {
-                label: '🔄 Switch Profile',
-                description: '',
-                detail: 'Quick switch to a different saved profile'
-            },
-            {
-                label: '✅ Enable Profile',
-                description: '',
-                detail: 'Enable a profile (add its highlights while keeping others)'
-            },
-            {
-                label: '❌ Disable Profile',
-                description: '',
-                detail: 'Disable an enabled profile (remove its highlights)'
-            },
-            {
-                label: '✨ New Profile',
-                description: '',
-                detail: 'Clear all highlights and start a new profile'
-            },
-            {
-                label: '➕ Merge Profile',
-                description: '',
-                detail: 'Add highlights from another profile to current'
-            },
-            {
-                label: '📝 Load Template',
-                description: '',
-                detail: 'Load pre-configured highlight patterns'
-            },
-            {
-                label: '📋 Duplicate Profile',
-                description: '',
-                detail: 'Create a copy of an existing profile'
-            },
-            {
-                label: '🗑️ Delete Profile',
-                description: '',
-                detail: 'Delete a saved profile file'
+        const generateItems = () => {
+            // Dynamic label for Save Profile based on active profile
+            const saveLabel = state.activeProfileName 
+                ? `💾 Save '${state.activeProfileName}'`
+                : '💾 Save Highlights to New Profile';
+            const saveDetail = state.activeProfileName
+                ? `Update the '${state.activeProfileName}' profile with current highlights`
+                : 'Save current manual highlights to a new profile';
+            
+            const items = [
+                {
+                    label: saveLabel,
+                    description: state.activeProfileModified ? '(modified)' : '',
+                    detail: saveDetail
+                }
+            ];
+            
+            // Add Save As option if there's an active profile
+            if (state.activeProfileName) {
+                items.push({
+                    label: '💾 Save As...',
+                    description: '',
+                    detail: `Save '${state.activeProfileName}' under a new name`
+                });
             }
-        ];
+            
+            items.push(
+                {
+                    label: '📂 Load Profile',
+                    description: '',
+                    detail: 'Load highlights from a saved JSON file'
+                },
+                {
+                    label: '🔄 Switch Profile',
+                    description: '',
+                    detail: 'Quick switch to a different saved profile'
+                },
+                {
+                    label: '✅ Enable Profile',
+                    description: '',
+                    detail: 'Enable a profile (add its highlights while keeping others)'
+                },
+                {
+                    label: '❌ Disable Profile',
+                    description: '',
+                    detail: 'Disable an enabled profile (remove its highlights)'
+                },
+                {
+                    label: '✨ New Profile',
+                    description: '',
+                    detail: 'Clear all highlights and start a new profile'
+                },
+                {
+                    label: '➕ Merge Profile',
+                    description: '',
+                    detail: 'Add highlights from another profile to current'
+                },
+                {
+                    label: '📝 Load Template',
+                    description: '',
+                    detail: 'Load pre-configured highlight patterns'
+                },
+                {
+                    label: '📋 Duplicate Profile',
+                    description: '',
+                    detail: 'Create a copy of an existing profile'
+                },
+                {
+                    label: '🗑️ Delete Profile',
+                    description: '',
+                    detail: 'Delete a saved profile file'
+                }
+            );
+            
+            return items;
+        };
 
         quickPick.items = generateItems();
 
@@ -597,9 +621,13 @@ export function activate(context: vscode.ExtensionContext) {
                 return;
             }
 
-            if (selected.label.includes('Save Profile')) {
+            if (selected.label.includes('Save Profile') || selected.label.includes("Save '") || selected.label.includes('Save Highlights')) {
                 quickPick.dispose();
                 await vscode.commands.executeCommand('multiScopeHighlighter.saveProfile');
+
+            } else if (selected.label.includes('Save As')) {
+                quickPick.dispose();
+                await vscode.commands.executeCommand('multiScopeHighlighter.saveProfileAs');
 
             } else if (selected.label.includes('Load Profile')) {
                 quickPick.dispose();
@@ -617,7 +645,7 @@ export function activate(context: vscode.ExtensionContext) {
                 quickPick.dispose();
                 await vscode.commands.executeCommand('multiScopeHighlighter.disableProfile');
 
-            } else if (selected.label.includes('New Profile')) {
+            } else if (selected.label.startsWith('✨ New Profile')) {
                 quickPick.dispose();
                 await vscode.commands.executeCommand('multiScopeHighlighter.newProfile');
 
@@ -1327,6 +1355,10 @@ export function activate(context: vscode.ExtensionContext) {
         await profileManager.saveProfile();
     });
 
+    const saveProfileAs = vscode.commands.registerCommand('multiScopeHighlighter.saveProfileAs', async () => {
+        await profileManager.saveProfileAs();
+    });
+
     const activateProfile = vscode.commands.registerCommand('multiScopeHighlighter.loadProfile', async () => {
         await profileManager.activateProfile();
     });
@@ -1399,8 +1431,8 @@ export function activate(context: vscode.ExtensionContext) {
             // Show Save option if this is the active profile and it has been modified
             if (isActive && isModified) {
                 items.unshift({
-                    label: '💾 Save Profile',
-                    description: '',
+                    label: `💾 Save '${profileName}'`,
+                    description: '(modified)',
                     detail: 'Save changes to this profile'
                 });
             }
@@ -1449,7 +1481,8 @@ export function activate(context: vscode.ExtensionContext) {
 
             quickPick.dispose();
 
-            if (selected.label.includes('Save Profile')) {
+            if (selected.label.includes('Save Profile') || selected.label.includes("Save '")) {
+                debugLog(`[manageProfile] Saving profile: ${profileName}`);
                 await profileManager.saveProfile(profileName);
                 
             } else if (selected.label.includes('Activate')) {
@@ -1851,6 +1884,7 @@ export function activate(context: vscode.ExtensionContext) {
         redoHighlight,
         toggleScope,
         saveProfile,
+        saveProfileAs,
         activateProfile,
         deleteProfile,
         switchProfile,

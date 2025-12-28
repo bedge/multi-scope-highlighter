@@ -118,6 +118,10 @@
         "title": "Highlight: Save Profile"
       },
       {
+        "command": "multiScopeHighlighter.saveProfileAs",
+        "title": "Highlight: Save Profile As..."
+      },
+      {
         "command": "multiScopeHighlighter.loadProfile",
         "title": "Highlight: Load Profile"
       },
