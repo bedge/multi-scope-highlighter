@@ -456,12 +456,12 @@ export function activate(context: vscode.ExtensionContext) {
                     detail: 'View all keybindings for this extension'
                 },
                 {
-                    label: '�️ Disable All',
+                    label: state.highlightsDisabled ? '✅ Enable All' : '❌ Disable All',
                     description: state.highlightsDisabled ? 'Currently disabled' : 'Currently enabled',
                     detail: 'Temporarily hide/show all highlights without clearing data'
                 },
                 {
-                    label: '�🔥 Clear All',
+                    label: '🔥 Clear All',
                     description: '',
                     detail: 'Remove all active highlights immediately'
                 }
@@ -511,7 +511,7 @@ export function activate(context: vscode.ExtensionContext) {
                 await vscode.commands.executeCommand('multiScopeHighlighter.showKeybindings');
                 vscode.commands.executeCommand('multiScopeHighlighter.showMenu');
 
-            } else if (selected.label.includes('Disable All')) {
+            } else if (selected.label.includes('Disable All') || selected.label.includes('Enable All')) {
                 vscode.commands.executeCommand('multiScopeHighlighter.toggleDisableAll');
                 quickPick.items = generateItems();
 

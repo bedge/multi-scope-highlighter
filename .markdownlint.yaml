@@ -1,0 +1,26 @@
+# https://github.com/DavidAnson/markdownlint
+
+# TODO: remove on cleanup ?
+# Allow dash as well as asterisk for unordered list markers
+# ul-style Unordered list style [Expected: asterisk; Actual: dash]
+MD004: false
+
+# TODO: remove on cleanup ?
+# Disable: indentation complaining
+# ul-indent Unordered list indentation [Expected: 2; Actual: 4]
+MD007: false
+
+# Disable MD013: Line length
+# This rule enforces a maximum line length. It is disabled here to allow longer lines for readability or specific formatting needs.
+MD013: false
+
+# Disable MD025: Multiple top-level headers in the same document
+# This rule ensures there is only one top-level header (e.g., H1) per document. It is disabled to allow multiple H1 headers if needed.
+MD025: false
+
+# Disable MD033: Inline HTML
+# This rule disallows the use of inline HTML in Markdown. It is disabled to permit HTML for advanced formatting or embedding content.
+MD033: false
+
+# Allow bare URLs
+MD034: false
