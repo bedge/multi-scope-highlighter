@@ -157,8 +157,9 @@ export class ProfileManager {
 
     /**
      * Save current highlights as a profile
+     * testOptions parameter to saveProfile() to bypass UI prompts (QuickPick for scope and color) that would timeout in the test environment
      */
-    async saveProfile(name?: string, skipConfirmation: boolean = false): Promise<void> {
+    async saveProfile(name?: string, skipConfirmation: boolean = false, testOptions?: { scope?: 'workspace' | 'global'; color?: string }): Promise<void> {
         debugLog('[saveProfile] === START ===');
         debugLog('[saveProfile] name parameter:', name);
         debugLog('[saveProfile] skipConfirmation:', skipConfirmation);
@@ -216,8 +217,8 @@ export class ProfileManager {
         }
 
         // Ask for scope if no name provided (new save)
-        let scope: 'workspace' | 'global' = 'workspace';
-        if (!name) {
+        let scope: 'workspace' | 'global' = testOptions?.scope || 'workspace';
+        if (!name && !testOptions) {
             const scopeChoice = await vscode.window.showQuickPick([
                 { label: '📁 Workspace', value: 'workspace' as const, description: 'Save to current workspace only' },
                 { label: '🌐 Global', value: 'global' as const, description: 'Save globally (available in all workspaces)' }
@@ -284,7 +285,7 @@ export class ProfileManager {
         }
 
         // Ask user to pick a color for this profile (or keep existing)
-        const profileColor = existingColor || await this.pickProfileColor(profileName);
+        const profileColor = testOptions?.color || existingColor || await this.pickProfileColor(profileName);
 
         const exportData: ProfileFileFormat = {
             metadata: {

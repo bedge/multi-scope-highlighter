@@ -1,0 +1,30 @@
+2025-12-21 08:15:23.145 | duration: 45ms | SELECT id, username, email FROM users WHERE status = 'active' AND role = 'admin'
+2025-12-21 08:15:24.891 | duration: 124ms | INSERT INTO sessions (user_id, token, expires_at) VALUES (7845, 'tok_a1b2c3', '2025-12-22 08:15:24')
+2025-12-21 08:15:25.432 | duration: 32ms | SELECT order_id, total, status FROM orders WHERE user_id = 7845 AND status IN ('pending', 'processing')
+2025-12-21 08:15:26.102 | duration: 87ms | SELECT p.id, p.name, p.price, c.name as category FROM products p JOIN categories c ON p.category_id = c.id WHERE p.status = 'active'
+2025-12-21 08:15:27.543 | duration: 156ms | INSERT INTO orders (user_id, total, status, created_at) VALUES (9123, 299.99, 'pending', NOW())
+2025-12-21 08:15:28.234 | duration: 28ms | SELECT preference_key, preference_value FROM user_preferences WHERE user_id = 6234 AND is_active = true
+2025-12-21 08:15:29.876 | duration: 41ms | SELECT ci.product_id, ci.quantity, p.price FROM cart_items ci JOIN products p ON ci.product_id = p.id WHERE ci.user_id = 5678
+2025-12-21 08:15:30.145 | duration: 19ms | DELETE FROM cart_items WHERE user_id = 7845 AND product_id = 789
+2025-12-21 08:15:31.923 | duration: 234ms | SELECT id, name, description, price FROM products WHERE name LIKE '%laptop%' OR description LIKE '%laptop%' ORDER BY price DESC
+2025-12-21 08:15:32.445 | duration: 892ms | UPDATE orders SET status = 'completed', payment_method = 'credit_card', payment_id = 'pay_xyz123' WHERE order_id = 45678
+2025-12-21 08:15:33.567 | duration: 76ms | SELECT o.order_id, o.total, o.status, o.created_at FROM orders o WHERE o.user_id = 5678 ORDER BY o.created_at DESC LIMIT 20
+2025-12-21 08:15:34.234 | duration: 12ms | SELECT id, username, email FROM users WHERE username = 'unknown_user'
+2025-12-21 08:15:35.678 | duration: 54ms | UPDATE user_preferences SET preference_value = 'dark_mode' WHERE user_id = 6234 AND preference_key = 'theme'
+2025-12-21 08:15:36.234 | duration: 23ms | SELECT COUNT(*) FROM notifications WHERE user_id = 7845 AND is_read = false
+2025-12-21 08:15:37.891 | duration: 98ms | INSERT INTO reviews (user_id, product_id, rating, comment) VALUES (8456, 12345, 5, 'Excellent product!')
+2025-12-21 08:15:38.432 | duration: 145ms | SELECT p.id, p.name, p.price, p.image_url FROM products p WHERE p.featured = true AND p.status = 'active' ORDER BY p.priority DESC
+2025-12-21 08:15:39.123 | duration: 31ms | SELECT status, updated_at FROM orders WHERE order_id = 45678
+2025-12-21 08:15:40.567 | duration: 15ms | SELECT id FROM users WHERE username = 'invalid_user' AND password_hash = 'wrong_hash'
+2025-12-21 08:15:41.234 | duration: 187ms | SELECT SUM(total) as total_sales, COUNT(*) as order_count FROM orders WHERE status = 'completed' AND created_at >= '2025-12-01'
+2025-12-21 08:15:42.891 | duration: 34ms | INSERT INTO cart_items (user_id, product_id, quantity) VALUES (5678, 98765, 2)
+2025-12-21 08:15:43.456 | duration: 67ms | SELECT r.rating, r.comment, r.created_at, u.username FROM reviews r JOIN users u ON r.user_id = u.id WHERE r.product_id = 12345
+2025-12-21 08:15:44.123 | duration: 234ms | UPDATE users SET avatar_url = 'https://cdn.example.com/avatars/7845.jpg' WHERE id = 7845
+2025-12-21 08:15:45.789 | duration: 45ms | SELECT id, name, parent_id FROM categories WHERE parent_id IS NULL OR parent_id IN (1, 2, 3)
+2025-12-21 08:15:46.345 | duration: 112ms | SELECT carrier, service_type, cost FROM shipping_rates WHERE weight_kg <= 5.5 AND country_code = 'US'
+2025-12-21 08:15:47.912 | duration: 145ms | UPDATE sessions SET last_activity = NOW() WHERE user_id = 9123 AND token = 'tok_d4e5f6'
+2025-12-21 08:15:48.567 | duration: 89ms | SELECT m.id, m.subject, m.sender_id, m.created_at FROM messages m WHERE m.recipient_id = 6234 AND m.is_deleted = false
+2025-12-21 08:15:49.234 | duration: 42ms | INSERT INTO wishlist (user_id, product_id, added_at) VALUES (8456, 54321, NOW())
+2025-12-21 08:15:50.891 | duration: 76ms | SELECT SUM(ci.quantity * p.price) as subtotal FROM cart_items ci JOIN products p ON ci.product_id = p.id WHERE ci.user_id = 5678
+2025-12-21 08:15:51.456 | duration: 198ms | SELECT p.id, p.name, p.price FROM products p WHERE p.category_id IN (SELECT category_id FROM user_preferences WHERE user_id = 7845)
+2025-12-21 08:15:52.123 | duration: 87ms | INSERT INTO support_tickets (user_id, subject, description, priority, status) VALUES (9123, 'Payment issue', 'Cannot process payment', 'high', 'open')

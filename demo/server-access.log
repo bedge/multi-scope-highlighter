@@ -1,0 +1,30 @@
+2025-12-21 08:15:23.145 | 192.168.1.101 | GET /api/users/profile | 200 | 45ms | Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+2025-12-21 08:15:24.891 | 192.168.1.102 | POST /api/auth/login | 200 | 124ms | Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36
+2025-12-21 08:15:25.432 | 192.168.1.101 | GET /api/orders/12345 | 200 | 32ms | Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+2025-12-21 08:15:26.102 | 10.0.0.25 | GET /api/products/list | 200 | 87ms | Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15
+2025-12-21 08:15:27.543 | 192.168.1.103 | POST /api/orders/create | 201 | 156ms | Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36
+2025-12-21 08:15:28.234 | 192.168.1.102 | GET /api/users/settings | 200 | 28ms | Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36
+2025-12-21 08:15:29.876 | 10.0.0.25 | GET /api/cart/items | 200 | 41ms | Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15
+2025-12-21 08:15:30.145 | 192.168.1.101 | DELETE /api/cart/item/789 | 204 | 19ms | Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+2025-12-21 08:15:31.923 | 192.168.1.104 | GET /api/products/search?q=laptop | 200 | 234ms | Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124
+2025-12-21 08:15:32.445 | 192.168.1.103 | POST /api/payment/process | 200 | 892ms | Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36
+2025-12-21 08:15:33.567 | 10.0.0.25 | GET /api/orders/history | 200 | 76ms | Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15
+2025-12-21 08:15:34.234 | 192.168.1.105 | GET /api/users/profile | 404 | 12ms | Mozilla/5.0 (Android 11; Mobile) AppleWebKit/537.36
+2025-12-21 08:15:35.678 | 192.168.1.102 | PUT /api/users/preferences | 200 | 54ms | Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36
+2025-12-21 08:15:36.234 | 192.168.1.101 | GET /api/notifications/unread | 200 | 23ms | Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+2025-12-21 08:15:37.891 | 192.168.1.104 | POST /api/reviews/create | 201 | 98ms | Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124
+2025-12-21 08:15:38.432 | 10.0.0.26 | GET /api/products/featured | 200 | 145ms | Mozilla/5.0 (iPad; CPU OS 14_6 like Mac OS X) AppleWebKit/605.1.15
+2025-12-21 08:15:39.123 | 192.168.1.103 | GET /api/orders/12345/status | 200 | 31ms | Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36
+2025-12-21 08:15:40.567 | 192.168.1.105 | POST /api/auth/login | 401 | 15ms | Mozilla/5.0 (Android 11; Mobile) AppleWebKit/537.36
+2025-12-21 08:15:41.234 | 192.168.1.102 | GET /api/dashboard/stats | 200 | 187ms | Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36
+2025-12-21 08:15:42.891 | 10.0.0.25 | POST /api/cart/add | 200 | 34ms | Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15
+2025-12-21 08:15:43.456 | 192.168.1.104 | GET /api/products/12345/reviews | 200 | 67ms | Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124
+2025-12-21 08:15:44.123 | 192.168.1.101 | PUT /api/users/avatar | 200 | 234ms | Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+2025-12-21 08:15:45.789 | 10.0.0.26 | GET /api/categories/list | 200 | 45ms | Mozilla/5.0 (iPad; CPU OS 14_6 like Mac OS X) AppleWebKit/605.1.15
+2025-12-21 08:15:46.345 | 192.168.1.103 | GET /api/shipping/rates | 200 | 112ms | Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36
+2025-12-21 08:15:47.912 | 192.168.1.105 | POST /api/auth/login | 200 | 145ms | Mozilla/5.0 (Android 11; Mobile) AppleWebKit/537.36
+2025-12-21 08:15:48.567 | 192.168.1.102 | GET /api/messages/inbox | 200 | 89ms | Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36
+2025-12-21 08:15:49.234 | 192.168.1.104 | POST /api/wishlist/add | 201 | 42ms | Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124
+2025-12-21 08:15:50.891 | 10.0.0.25 | GET /api/checkout/summary | 200 | 76ms | Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15
+2025-12-21 08:15:51.456 | 192.168.1.101 | GET /api/recommendations | 200 | 198ms | Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+2025-12-21 08:15:52.123 | 192.168.1.103 | POST /api/support/ticket | 201 | 87ms | Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36

@@ -1,0 +1,112 @@
+{
+  "status": "success",
+  "data": {
+    "users": [
+      {
+        "id": "usr_7f8a9b2c",
+        "username": "alice_smith",
+        "email": "alice@example.com",
+        "role": "admin",
+        "status": "active",
+        "created_at": "2024-01-15T08:30:00Z",
+        "last_login": "2025-12-21T08:15:23Z",
+        "permissions": ["read", "write", "delete", "admin"],
+        "department": "engineering"
+      },
+      {
+        "id": "usr_3d4e5f6g",
+        "username": "bob_jones",
+        "email": "bob@example.com",
+        "role": "user",
+        "status": "active",
+        "created_at": "2024-02-20T14:22:00Z",
+        "last_login": "2025-12-21T07:45:12Z",
+        "permissions": ["read", "write"],
+        "department": "sales"
+      },
+      {
+        "id": "usr_1a2b3c4d",
+        "username": "charlie_brown",
+        "email": "charlie@example.com",
+        "role": "user",
+        "status": "inactive",
+        "created_at": "2024-03-10T10:15:00Z",
+        "last_login": "2025-11-30T16:20:45Z",
+        "permissions": ["read"],
+        "department": "marketing"
+      },
+      {
+        "id": "usr_9e8d7c6b",
+        "username": "diana_prince",
+        "email": "diana@example.com",
+        "role": "moderator",
+        "status": "active",
+        "created_at": "2024-04-05T09:00:00Z",
+        "last_login": "2025-12-21T08:10:33Z",
+        "permissions": ["read", "write", "moderate"],
+        "department": "support"
+      },
+      {
+        "id": "usr_5f6g7h8i",
+        "username": "edward_stark",
+        "email": "edward@example.com",
+        "role": "user",
+        "status": "active",
+        "created_at": "2024-05-12T11:45:00Z",
+        "last_login": "2025-12-20T22:15:18Z",
+        "permissions": ["read", "write"],
+        "department": "engineering"
+      },
+      {
+        "id": "usr_2b3c4d5e",
+        "username": "fiona_gallagher",
+        "email": "fiona@example.com",
+        "role": "admin",
+        "status": "active",
+        "created_at": "2024-06-18T13:20:00Z",
+        "last_login": "2025-12-21T06:55:42Z",
+        "permissions": ["read", "write", "delete", "admin"],
+        "department": "operations"
+      },
+      {
+        "id": "usr_8i9j0k1l",
+        "username": "george_martin",
+        "email": "george@example.com",
+        "role": "user",
+        "status": "suspended",
+        "created_at": "2024-07-22T15:30:00Z",
+        "last_login": "2025-12-15T14:22:10Z",
+        "permissions": [],
+        "department": "sales"
+      },
+      {
+        "id": "usr_4d5e6f7g",
+        "username": "hannah_montana",
+        "email": "hannah@example.com",
+        "role": "moderator",
+        "status": "active",
+        "created_at": "2024-08-30T16:40:00Z",
+        "last_login": "2025-12-21T08:05:28Z",
+        "permissions": ["read", "write", "moderate"],
+        "department": "support"
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "total_pages": 5,
+      "items_per_page": 8,
+      "total_items": 37
+    },
+    "filters_applied": {
+      "status": ["active", "inactive"],
+      "department": ["engineering", "sales", "marketing", "support", "operations"],
+      "role": ["admin", "moderator", "user"]
+    }
+  },
+  "metadata": {
+    "request_id": "req_a1b2c3d4e5f6",
+    "timestamp": "2025-12-21T08:15:52.234Z",
+    "api_version": "v2.1.0",
+    "response_time_ms": 145
+  }
+}

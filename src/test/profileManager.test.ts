@@ -47,6 +47,16 @@ suite('ProfileManager Test Suite', () => {
         } catch (e) {
             // Ignore if directory doesn't exist
         }
+        
+        // Clean up global storage
+        try {
+            const globalStoragePath = path.join(__dirname, '.test-global-storage');
+            if (fs.existsSync(globalStoragePath)) {
+                fs.rmSync(globalStoragePath, { recursive: true, force: true });
+            }
+        } catch (e) {
+            // Ignore cleanup errors
+        }
     }
 
     setup(() => {
@@ -71,8 +81,8 @@ suite('ProfileManager Test Suite', () => {
             asAbsolutePath: (p: string) => p,
             storageUri: undefined,
             storagePath: undefined,
-            globalStorageUri: vscode.Uri.file(''),
-            globalStoragePath: '',
+            globalStorageUri: vscode.Uri.file(path.join(__dirname, '.test-global-storage')),
+            globalStoragePath: path.join(__dirname, '.test-global-storage'),
             logUri: vscode.Uri.file(''),
             logPath: '',
             extensionMode: vscode.ExtensionMode.Test,
@@ -122,7 +132,7 @@ suite('ProfileManager Test Suite', () => {
         state.highlightMap.set('FIXME', { color: 'red', mode: 'whole', cachedRegex: null });
 
         // Save profile
-        await profileManager.saveProfile('test-profile-save');
+        await profileManager.saveProfile('test-profile-save', false, { scope: 'workspace', color: '#FF5555' });
 
         // Verify status bar update was called
         assert.strictEqual(statusBarUpdateCalled, true, 'Status bar should update after save');
@@ -228,7 +238,7 @@ suite('ProfileManager Test Suite', () => {
 
         // Add highlights and save with same name
         state.highlightMap.set('NEW', { color: 'red', mode: 'text', cachedRegex: null });
-        await profileManager.saveProfile('test-profile-resave');
+        await profileManager.saveProfile('test-profile-resave', false, { scope: 'workspace', color: '#FF5555' });
 
         // Read saved file
         const savedContent = fs.readFileSync(testFile, 'utf-8');
@@ -288,7 +298,7 @@ suite('ProfileManager Test Suite', () => {
         state.highlightMap.set('TEST2', { color: 'green', mode: 'regex', cachedRegex: null });
 
         // Save profile
-        await profileManager.saveProfile('test-profile-metadata');
+        await profileManager.saveProfile('test-profile-metadata', false, { scope: 'workspace', color: '#FF5555' });
 
         // Read saved file
         const testFile = path.join(savePath, 'test-profile-metadata.json');
