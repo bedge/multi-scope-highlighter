@@ -1633,16 +1633,23 @@ export function activate(context: vscode.ExtensionContext) {
                     }
                     
                     // Add items for this profile
-                    highlights.forEach(([pattern, details]) => {
+                    highlights.forEach(([pattern, details], index) => {
                         const visualColor = getColorValue(details.color);
                         const colorName = PALETTE[details.color] ? details.color : 'Custom';
                         
-                        // Show profile info for each item
-                        const profileLabel = profileName !== 'Manual' ? `${scopeIcon}${profileName}` : '';
+                        // Show profile info only on first item, right-justified with padding
+                        let profileInfo = '';
+                        if (index === 0 && profileName !== 'Manual') {
+                            // Use Unicode spaces to create right-justified appearance
+                            const baseText = `[${getModeLabel(details.mode)}] • ${colorName}`;
+                            const profileText = `${scopeIcon}${profileName}`;
+                            const padding = ' '.repeat(Math.max(1, 50 - baseText.length - profileText.length));
+                            profileInfo = `${padding}${profileText}`;
+                        }
                         
                         items.push({
                             label: pattern,
-                            description: `[${getModeLabel(details.mode)}] • ${colorName} ${profileLabel ? `• ${profileLabel}` : ''}`,
+                            description: `[${getModeLabel(details.mode)}] • ${colorName}${profileInfo}`,
                             pattern: pattern,
                             iconPath: getIconUri(visualColor, 'rect'),
                             buttons: [
