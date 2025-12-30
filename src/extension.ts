@@ -1619,7 +1619,7 @@ export function activate(context: vscode.ExtensionContext) {
                     return a.localeCompare(b);
                 });
                 
-                // Build items grouped by profile
+// Build items grouped by profile
                 const items: Array<vscode.QuickPickItem & { pattern: string }> = [];
                 
                 for (const profileName of sortedProfiles) {
@@ -1632,24 +1632,24 @@ export function activate(context: vscode.ExtensionContext) {
                         scopeIcon = metadata?.scope === 'global' ? '🌐 ' : '📁 ';
                     }
                     
+                    // --- NEW: Add Profile Header (Separator) ---
+                    items.push({
+                        label: profileName === 'Manual' ? 'Manual Highlights' : `${scopeIcon} ${profileName}`,
+                        kind: vscode.QuickPickItemKind.Separator,
+                        pattern: '' // Dummy value to satisfy the TypeScript type definition
+                    });
+
                     // Add items for this profile
-                    highlights.forEach(([pattern, details], index) => {
+                    highlights.forEach(([pattern, details]) => {
                         const visualColor = getColorValue(details.color);
                         const colorName = PALETTE[details.color] ? details.color : 'Custom';
                         
-                        // Show profile info only on first item, right-justified with padding
-                        let profileInfo = '';
-                        if (index === 0 && profileName !== 'Manual') {
-                            // Use Unicode spaces to create right-justified appearance
-                            const baseText = `[${getModeLabel(details.mode)}] • ${colorName}`;
-                            const profileText = `${scopeIcon}${profileName}`;
-                            const padding = ' '.repeat(Math.max(1, 50 - baseText.length - profileText.length));
-                            profileInfo = `${padding}${profileText}`;
-                        }
+                        // --- UPDATED: Removed 'profileDetail' logic ---
                         
                         items.push({
                             label: pattern,
-                            description: `[${getModeLabel(details.mode)}] • ${colorName}${profileInfo}`,
+                            description: `[${getModeLabel(details.mode)}] • ${colorName}`,
+                            // detail: undefined, // Removed entirely
                             pattern: pattern,
                             iconPath: getIconUri(visualColor, 'rect'),
                             buttons: [
